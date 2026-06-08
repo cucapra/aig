@@ -1,0 +1,2 @@
+# aig
+and-inverter graphs in rust for formal verification / circuit synthesis
