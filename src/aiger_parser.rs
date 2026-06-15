@@ -1,6 +1,6 @@
 use std::fs::File;
+use std::io::{self, BufReader, Error, ErrorKind, Read};
 use std::path::Path;
-use std::io::{self, BufReader, Read, Error, ErrorKind};
 
 #[derive(Debug)]
 pub struct AigerHeader {
@@ -30,7 +30,10 @@ pub fn verify_aiger_header(reader: &mut impl Read) -> io::Result<AigerHeader> {
         b"aag " => true,
         b"aig " => false,
         _ => {
-            return Err(Error::new(ErrorKind::InvalidData,"Invalid tag, must be either 'aag' or 'aig'",));
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Invalid tag, must be either 'aag' or 'aig'",
+            ));
         }
     };
 
@@ -45,28 +48,39 @@ pub fn verify_aiger_header(reader: &mut impl Read) -> io::Result<AigerHeader> {
 
         if b == b' ' || b == b'\n' {
             if num_index >= 5 {
-                return Err(Error::new(ErrorKind::InvalidData,"Too many header variables",));
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    "Too many header variables",
+                ));
             }
 
             numbers[num_index] = current_val;
             num_index += 1;
             current_val = 0;
 
-            if b == b'\n' { break; }
+            if b == b'\n' {
+                break;
+            }
         } else if b.is_ascii_digit() {
             let digit: usize = (b - b'0') as usize;
 
             current_val = current_val
                 .checked_mul(10)
                 .and_then(|v| v.checked_add(digit))
-                .ok_or_else(|| {Error::new(ErrorKind::InvalidData, "Integer overflow in header")})?;
+                .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Integer overflow in header"))?;
         } else {
-            return Err(Error::new(   ErrorKind::InvalidData,"Invalid character in header",));
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Invalid character in header",
+            ));
         }
     }
 
     if num_index != 5 {
-        return Err(Error::new(  ErrorKind::InvalidData, "Missing header variables"));
+        return Err(Error::new(
+            ErrorKind::InvalidData,
+            "Missing header variables",
+        ));
     }
 
     let m: usize = numbers[0];
@@ -76,8 +90,18 @@ pub fn verify_aiger_header(reader: &mut impl Read) -> io::Result<AigerHeader> {
     let a: usize = numbers[4];
 
     if m < i + l + a {
-        return Err(Error::new(ErrorKind::InvalidData,"Structural layout violation: M < I + L + A",));
+        return Err(Error::new(
+            ErrorKind::InvalidData,
+            "Structural layout violation: M < I + L + A",
+        ));
     }
 
-    Ok(AigerHeader {is_ascii, m, i, l, o, a,})
+    Ok(AigerHeader {
+        is_ascii,
+        m,
+        i,
+        l,
+        o,
+        a,
+    })
 }

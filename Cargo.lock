@@ -5,11 +5,3 @@ version = 4
 [[package]]
 name = "aig"
 version = "0.1.0"
-
-[[package]]
-name = "aig_graph"
-version = "0.1.0"
-
-[[package]]
-name = "aiger_parser"
-version = "0.1.0"
