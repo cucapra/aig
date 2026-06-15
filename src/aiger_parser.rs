@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{self, BufReader, Error, ErrorKind, Read};
+use std::io::{self, BufRead, BufReader, Error, ErrorKind};
 use std::path::Path;
 
 #[derive(Debug)]
@@ -22,13 +22,22 @@ pub fn run_parser(file_name: &str) -> io::Result<()> {
     Ok(())
 }
 
-pub fn verify_aiger_header(reader: &mut impl Read) -> io::Result<AigerHeader> {
-    let mut tag: [u8; 4] = [0; 4];
-    reader.read_exact(&mut tag)?;
+pub fn verify_aiger_header(reader: &mut impl BufRead) -> io::Result<AigerHeader> {
+    let mut line: String = String::new();
+    reader.read_line(&mut line)?;
 
-    let is_ascii: bool = match &tag {
-        b"aag " => true,
-        b"aig " => false,
+    let parts: Vec<&str> = line.split_whitespace().collect();
+
+    if parts.len() != 6 {
+        return Err(Error::new(
+            ErrorKind::InvalidData,
+            "Header must have format: aag/aig M I L O A",
+        ));
+    }
+
+    let is_ascii = match parts[0] {
+        "aag" => true,
+        "aig" => false,
         _ => {
             return Err(Error::new(
                 ErrorKind::InvalidData,
@@ -37,57 +46,11 @@ pub fn verify_aiger_header(reader: &mut impl Read) -> io::Result<AigerHeader> {
         }
     };
 
-    let mut numbers: [usize; 5] = [0; 5];
-    let mut num_index: usize = 0;
-    let mut current_val: usize = 0;
-    let mut byte: [u8; 1] = [0; 1];
-
-    loop {
-        reader.read_exact(&mut byte)?;
-        let b: u8 = byte[0];
-
-        if b == b' ' || b == b'\n' {
-            if num_index >= 5 {
-                return Err(Error::new(
-                    ErrorKind::InvalidData,
-                    "Too many header variables",
-                ));
-            }
-
-            numbers[num_index] = current_val;
-            num_index += 1;
-            current_val = 0;
-
-            if b == b'\n' {
-                break;
-            }
-        } else if b.is_ascii_digit() {
-            let digit: usize = (b - b'0') as usize;
-
-            current_val = current_val
-                .checked_mul(10)
-                .and_then(|v| v.checked_add(digit))
-                .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Integer overflow in header"))?;
-        } else {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                "Invalid character in header",
-            ));
-        }
-    }
-
-    if num_index != 5 {
-        return Err(Error::new(
-            ErrorKind::InvalidData,
-            "Missing header variables",
-        ));
-    }
-
-    let m: usize = numbers[0];
-    let i: usize = numbers[1];
-    let l: usize = numbers[2];
-    let o: usize = numbers[3];
-    let a: usize = numbers[4];
+    let m: usize = parse_header_number(parts[1], "M")?;
+    let i: usize = parse_header_number(parts[2], "I")?;
+    let l: usize = parse_header_number(parts[3], "L")?;
+    let o: usize = parse_header_number(parts[4], "O")?;
+    let a: usize = parse_header_number(parts[5], "A")?;
 
     if m < i + l + a {
         return Err(Error::new(
@@ -96,12 +59,13 @@ pub fn verify_aiger_header(reader: &mut impl Read) -> io::Result<AigerHeader> {
         ));
     }
 
-    Ok(AigerHeader {
-        is_ascii,
-        m,
-        i,
-        l,
-        o,
-        a,
+    Ok(AigerHeader {is_ascii, m, i, l, o, a,})
+}
+
+fn parse_header_number(s: &str, name: &str) -> io::Result<usize> {
+    s.parse::<usize>().map_err(|_| { Error::new(
+            ErrorKind::InvalidData,
+            format!("Invalid header number for {}", name),
+        )
     })
 }
