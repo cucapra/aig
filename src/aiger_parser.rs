@@ -91,11 +91,19 @@ pub fn verify_aiger_header(reader: &mut impl BufRead) -> io::Result<AigerHeader>
         ));
     }
 
-    Ok(AigerHeader {is_ascii, m, i, l, o, a,})
+    Ok(AigerHeader {
+        is_ascii,
+        m,
+        i,
+        l,
+        o,
+        a,
+    })
 }
 
 fn parse_header_number(s: &str, name: &str) -> io::Result<usize> {
-    s.parse::<usize>().map_err(|_| { Error::new(
+    s.parse::<usize>().map_err(|_| {
+        Error::new(
             ErrorKind::InvalidData,
             format!("Invalid header number for {}", name),
         )
@@ -171,7 +179,6 @@ fn read_and_line(reader: &mut impl BufRead) -> io::Result<AigerAnd> {
         ));
     }
 
-
     let parts: Vec<&str> = line.split_whitespace().collect();
 
     if parts.len() != 3 {
@@ -205,7 +212,7 @@ fn read_and_line(reader: &mut impl BufRead) -> io::Result<AigerAnd> {
     Ok(AigerAnd { lhs, rhs0, rhs1 })
 }
 
-pub fn parse_ascii_aiger_body(header: AigerHeader, reader: &mut impl BufRead,) -> io::Result<Aiger> {
+pub fn parse_ascii_aiger_body(header: AigerHeader, reader: &mut impl BufRead) -> io::Result<Aiger> {
     let mut inputs: Vec<usize> = Vec::new();
     let mut latches: Vec<AigerLatch> = Vec::new();
     let mut outputs: Vec<usize> = Vec::new();
@@ -231,5 +238,11 @@ pub fn parse_ascii_aiger_body(header: AigerHeader, reader: &mut impl BufRead,) -
         ands.push(and_gate);
     }
 
-    Ok(Aiger {header, inputs, latches, outputs, ands})
+    Ok(Aiger {
+        header,
+        inputs,
+        latches,
+        outputs,
+        ands,
+    })
 }
