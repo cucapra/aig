@@ -246,3 +246,54 @@ pub fn parse_ascii_aiger_body(header: AigerHeader, reader: &mut impl BufRead) ->
         ands,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn parses_simple_and_gate_header() {
+        let input: &[u8; 26] = b"aag 3 2 0 1 1\n2\n4\n6\n6 2 4\n";
+        let mut reader: Cursor<&[u8; 26]> = Cursor::new(input);
+
+        let header: AigerHeader = verify_aiger_header(&mut reader).unwrap();
+
+        assert!(header.is_ascii);
+        assert_eq!(header.m, 3);
+        assert_eq!(header.i, 2);
+        assert_eq!(header.l, 0);
+        assert_eq!(header.o, 1);
+        assert_eq!(header.a, 1);
+    }
+
+    #[test]
+    fn rejects_invalid_tag() {
+        let input: &[u8; 14] = b"bad 3 2 0 1 1\n";
+        let mut reader: Cursor<&[u8; 14]> = Cursor::new(input);
+
+        let result: Result<AigerHeader, Error> = verify_aiger_header(&mut reader);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn rejects_missing_header_number() {
+        let input: &[u8; 12] = b"aag 3 2 0 1\n";
+        let mut reader: Cursor<&[u8; 12]> = Cursor::new(input);
+
+        let result: Result<AigerHeader, Error> = verify_aiger_header(&mut reader);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn rejects_structural_violation() {
+        let input: &[u8; 14] = b"aag 2 2 0 1 1\n";
+        let mut reader: Cursor<&[u8; 14]> = Cursor::new(input);
+
+        let result: Result<AigerHeader, Error> = verify_aiger_header(&mut reader);
+
+        assert!(result.is_err());
+    }
+}
