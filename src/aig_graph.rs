@@ -1,6 +1,6 @@
 use std::ops::{Index, IndexMut};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct NodeId(u32);
 
 const INVERSION_MASK: u32 = 0b0000_0000_0000_0000_0000_0000_0000_0001;
