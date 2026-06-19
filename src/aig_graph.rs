@@ -1,14 +1,16 @@
-use std::ops::{Index, IndexMut};
+use std::collections::HashMap;
+use std::ops::Index;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct NodeId(u32);
 
 const INVERSION_MASK: u32 = 0b0000_0000_0000_0000_0000_0000_0000_0001;
 const NODE_ID_MASK: u32 = 0b1111_1111_1111_1111_1111_1111_1111_1110;
 
 const INPUT_NODE_MARKER: NodeId = NodeId(NODE_ID_MASK);
+const CONST_FALSE_NODE_MARKER: NodeId = NodeId(NODE_ID_MASK - 2);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct AigNode {
     left: NodeId,
     right: NodeId,
@@ -17,6 +19,8 @@ pub struct AigNode {
 #[derive(Debug)]
 pub struct AigGraph {
     graph: Vec<AigNode>,
+    and_hash: HashMap<AigNode, NodeId>,
+    outputs: Vec<NodeId>,
 }
 
 impl NodeId {
@@ -53,6 +57,13 @@ impl AigNode {
         }
     }
 
+    fn new_const_false() -> Self {
+        Self {
+            left: CONST_FALSE_NODE_MARKER,
+            right: CONST_FALSE_NODE_MARKER,
+        }
+    }
+
     pub fn left(&self) -> NodeId {
         self.left
     }
@@ -65,14 +76,23 @@ impl AigNode {
         self.left.regular() == INPUT_NODE_MARKER && self.right.regular() == INPUT_NODE_MARKER
     }
 
+    pub fn is_const_false(&self) -> bool {
+        self.left.regular() == CONST_FALSE_NODE_MARKER
+            && self.right.regular() == CONST_FALSE_NODE_MARKER
+    }
+
     pub fn is_and(&self) -> bool {
-        !self.is_input()
+        !self.is_input() && !self.is_const_false()
     }
 }
 
 impl AigGraph {
     pub fn new() -> Self {
-        Self { graph: Vec::new() }
+        Self {
+            graph: vec![AigNode::new_const_false()],
+            and_hash: HashMap::new(),
+            outputs: Vec::new(),
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -81,6 +101,14 @@ impl AigGraph {
 
     pub fn is_empty(&self) -> bool {
         self.graph.is_empty()
+    }
+
+    pub fn const_false(&self) -> NodeId {
+        NodeId::from_index(0)
+    }
+
+    pub fn const_true(&self) -> NodeId {
+        self.const_false().invert()
     }
 
     pub fn add_input(&mut self) -> NodeId {
@@ -92,13 +120,81 @@ impl AigGraph {
         id
     }
 
-    pub fn add_and(&mut self, left: NodeId, right: NodeId) -> NodeId {
-        let index = self.graph.len();
-        let id = NodeId::from_index(index);
+    pub fn add_and_raw(&mut self, left: NodeId, right: NodeId) -> NodeId {
+        let index: usize = self.graph.len();
+        let id: NodeId = NodeId::from_index(index);
 
         self.graph.push(AigNode::new(left, right));
 
         id
+    }
+
+    pub fn add_and_optimized(&mut self, left: NodeId, right: NodeId) -> NodeId {
+        let false_id: NodeId = self.const_false();
+        let true_id: NodeId = self.const_true();
+
+        // x & false = false
+        if left == false_id || right == false_id {
+            return false_id;
+        }
+
+        // x & true = x
+        if left == true_id {
+            return right;
+        }
+
+        if right == true_id {
+            return left;
+        }
+
+        // x & x = x
+        if left == right {
+            return left;
+        }
+
+        // x & !x = false
+        if left == right.invert() {
+            return false_id;
+        }
+
+        // AND is commutative, so canonicalize child order (smaller id on the left)
+        let (left, right) = if right < left {
+            (right, left)
+        } else {
+            (left, right)
+        };
+
+        let node: AigNode = AigNode::new(left, right);
+
+        if let Some(existing_id) = self.and_hash.get(&node) {
+            return *existing_id;
+        }
+
+        let index = self.graph.len();
+        let id = NodeId::from_index(index);
+
+        self.graph.push(node);
+        self.and_hash.insert(node, id);
+
+        id
+    }
+
+    pub fn add_output(&mut self, output: NodeId) {
+        self.outputs.push(output);
+    }
+
+    pub fn num_outputs(&self) -> usize {
+        self.outputs.len()
+    }
+
+    pub fn output(&self, index: usize) -> Option<NodeId> {
+        self.outputs.get(index).copied()
+    }
+}
+
+impl Default for AigGraph {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -107,11 +203,5 @@ impl Index<NodeId> for AigGraph {
 
     fn index(&self, id: NodeId) -> &Self::Output {
         &self.graph[id.index()]
-    }
-}
-
-impl IndexMut<NodeId> for AigGraph {
-    fn index_mut(&mut self, id: NodeId) -> &mut Self::Output {
-        &mut self.graph[id.index()]
     }
 }
