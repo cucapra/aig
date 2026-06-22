@@ -111,8 +111,8 @@ pub fn parse_ascii_aiger_into_graph(
 
     let mut lit_to_node: HashMap<usize, NodeId> = HashMap::new();
 
-    lit_to_node.insert(0, graph.const_false());
-    lit_to_node.insert(1, graph.const_true());
+    lit_to_node.insert(0, NodeId::FALSE);
+    lit_to_node.insert(1, NodeId::TRUE);
 
     for _ in 0..header.i {
         let input_lit = read_one_number_line(reader, "input")?;

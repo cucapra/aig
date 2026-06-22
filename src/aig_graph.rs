@@ -6,9 +6,7 @@ pub struct NodeId(u32);
 
 const INVERSION_MASK: u32 = 0b0000_0000_0000_0000_0000_0000_0000_0001;
 const NODE_ID_MASK: u32 = 0b1111_1111_1111_1111_1111_1111_1111_1110;
-
 const INPUT_NODE_MARKER: NodeId = NodeId(NODE_ID_MASK);
-const CONST_FALSE_NODE_MARKER: NodeId = NodeId(NODE_ID_MASK - 2);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct AigNode {
@@ -24,6 +22,9 @@ pub struct AigGraph {
 }
 
 impl NodeId {
+    pub const FALSE: NodeId = NodeId(0);
+    pub const TRUE: NodeId = NodeId(1);
+
     pub fn is_inverted(self) -> bool {
         (self.0 & INVERSION_MASK) != 0
     }
@@ -36,12 +37,39 @@ impl NodeId {
         Self(self.0 ^ INVERSION_MASK)
     }
 
+    pub fn is_const(self) -> bool {
+        self.regular() == NodeId::FALSE
+    }
+
+    pub fn is_false(self) -> bool {
+        self == NodeId::FALSE
+    }
+
+    pub fn is_true(self) -> bool {
+        self == NodeId::TRUE
+    }
+
     fn index(self) -> usize {
-        (self.regular().0 >> 1) as usize
+        self.to_index()
+            .expect("Tried to index graph using a constant (true or false)")
+    }
+
+    fn to_index(self) -> Option<usize> {
+        if self.is_const() {
+            None
+        } else {
+            // NodeId(2) -> graph[0]
+            // NodeId(4) -> graph[1]
+            // NodeId(6) -> graph[2]
+            Some(((self.regular().0 >> 1) - 1) as usize)
+        }
     }
 
     fn from_index(index: usize) -> Self {
-        Self((index as u32) << 1)
+        // graph[0] -> NodeId(2)
+        // graph[1] -> NodeId(4)
+        // graph[2] -> NodeId(6)
+        Self(((index as u32) + 1) << 1)
     }
 }
 
@@ -57,13 +85,6 @@ impl AigNode {
         }
     }
 
-    fn new_const_false() -> Self {
-        Self {
-            left: CONST_FALSE_NODE_MARKER,
-            right: CONST_FALSE_NODE_MARKER,
-        }
-    }
-
     pub fn left(&self) -> NodeId {
         self.left
     }
@@ -75,21 +96,12 @@ impl AigNode {
     pub fn is_input(&self) -> bool {
         self.left.regular() == INPUT_NODE_MARKER && self.right.regular() == INPUT_NODE_MARKER
     }
-
-    pub fn is_const_false(&self) -> bool {
-        self.left.regular() == CONST_FALSE_NODE_MARKER
-            && self.right.regular() == CONST_FALSE_NODE_MARKER
-    }
-
-    pub fn is_and(&self) -> bool {
-        !self.is_input() && !self.is_const_false()
-    }
 }
 
 impl AigGraph {
     pub fn new() -> Self {
         Self {
-            graph: vec![AigNode::new_const_false()],
+            graph: Vec::new(),
             and_hash: HashMap::new(),
             outputs: Vec::new(),
         }
@@ -104,11 +116,11 @@ impl AigGraph {
     }
 
     pub fn const_false(&self) -> NodeId {
-        NodeId::from_index(0)
+        NodeId::FALSE
     }
 
     pub fn const_true(&self) -> NodeId {
-        self.const_false().invert()
+        NodeId::TRUE
     }
 
     pub fn add_input(&mut self) -> NodeId {
@@ -121,8 +133,8 @@ impl AigGraph {
     }
 
     pub fn add_and_raw(&mut self, left: NodeId, right: NodeId) -> NodeId {
-        let index: usize = self.graph.len();
-        let id: NodeId = NodeId::from_index(index);
+        let index = self.graph.len();
+        let id = NodeId::from_index(index);
 
         self.graph.push(AigNode::new(left, right));
 
@@ -130,8 +142,8 @@ impl AigGraph {
     }
 
     pub fn add_and_optimized(&mut self, left: NodeId, right: NodeId) -> NodeId {
-        let false_id: NodeId = self.const_false();
-        let true_id: NodeId = self.const_true();
+        let false_id = NodeId::FALSE;
+        let true_id = NodeId::TRUE;
 
         // x & false = false
         if left == false_id || right == false_id {
@@ -157,14 +169,14 @@ impl AigGraph {
             return false_id;
         }
 
-        // AND is commutative, so canonicalize child order (smaller id on the left)
+        // AND is commutative, so canonicalize child order.
         let (left, right) = if right < left {
             (right, left)
         } else {
             (left, right)
         };
 
-        let node: AigNode = AigNode::new(left, right);
+        let node = AigNode::new(left, right);
 
         if let Some(existing_id) = self.and_hash.get(&node) {
             return *existing_id;
