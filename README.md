@@ -6,8 +6,6 @@ And-Inverter Graphs (AIGs) implemented in Rust for formal verification and circu
 
 An And-Inverter Graph (AIG) is a data structure used to represent Boolean logic circuits. Since any Boolean circuit can be represented using only `AND` and `NOT`, an AIG represents nodes as `AND` gates and edges as either regular or inverted connections
 
-In this implementation, inversion is encoded in the `NodeId` itself using the least significant bit. This is similar to the literal encoding used by AIGER (file representation of AIG graphs).
-
 ## Internal Representation
 
 The graph stores AIG nodes in a `Vec<AigNode>`:
@@ -45,7 +43,7 @@ odd NodeId  = inverted signal
 
 So inverting a `NodeId` just toggles the last bit.
 
-```text
+```math
 a = NodeId(2);
 $\neg a$ = NodeId(3);
 b = NodeId(4);
@@ -63,14 +61,14 @@ impl NodeId {
 
 This works because `NodeId(1)` is just `NodeId(0)` with the inversion bit set:
 
-```text
+```math
 NodeId(0) = false
 NodeId(1) = !false = true
 ```
 
 Constants are not stored as nodes in the graph vector. Real graph nodes start at `NodeId(2)` since `NodeId(0)` and `NodeId(1)` are reserved for the constants `true` and `false`:
 
-```text
+```math
 graph[0] -> NodeId(2)
 graph[1] -> NodeId(4)
 graph[2] -> NodeId(6)
@@ -78,7 +76,7 @@ graph[2] -> NodeId(6)
 
 Their inverted versions are represented by setting the least significant bit:
 
-```text
+```math
 NodeId(2) = graph[0]
 NodeId(3) = !graph[0]
 
@@ -118,7 +116,7 @@ AigNode {
 
 While multiple inputs contain the same internal marker data, but they are still different inputs because they have different `NodeId`s:
 
-```text
+```math
 graph[0] = input node -> NodeId(2)
 graph[1] = input node -> NodeId(4)
 graph[2] = input node -> NodeId(6)
