@@ -2,8 +2,7 @@ use std::collections::HashMap;
 use std::io::{BufRead, Error};
 
 use crate::aig_graph::{AigGraph, NodeId};
-use crate::aiger_parser::{AigerHeader, read_one_number_line, lookup_aiger_literal};
-
+use crate::aiger_parser::{AigerHeader, lookup_aiger_literal, read_one_number_line};
 
 pub fn parse_ascii_aiger_into_graph(
     header: AigerHeader,
@@ -88,8 +87,6 @@ fn read_latch_line(reader: &mut impl BufRead) -> Result<(usize, usize), Error> {
 
     Ok((latch, input))
 }
-
-
 
 fn read_and_line(reader: &mut impl BufRead) -> Result<(usize, usize, usize), Error> {
     let mut line: String = String::new();

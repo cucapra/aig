@@ -2,14 +2,13 @@ use std::collections::HashMap;
 use std::io::{BufRead, Error, Read};
 
 use crate::aig_graph::{AigGraph, NodeId};
-use crate::aiger_parser::{AigerHeader, read_one_number_line, lookup_aiger_literal};
+use crate::aiger_parser::{AigerHeader, lookup_aiger_literal, read_one_number_line};
 
 pub fn parse_binary_aiger_into_graph(
     header: AigerHeader,
     reader: &mut impl BufRead,
     pre_optimize: bool,
 ) -> Result<AigGraph, Error> {
-
     let mut graph: AigGraph = AigGraph::new();
     let mut lit_to_node: HashMap<usize, NodeId> = HashMap::new();
 
@@ -75,7 +74,6 @@ pub fn parse_binary_aiger_into_graph(
 
     Ok(graph)
 }
-
 
 fn read_delta(reader: &mut impl Read) -> Result<usize, Error> {
     let mut value: usize = 0usize;

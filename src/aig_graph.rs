@@ -353,7 +353,6 @@ impl AigGraph {
     pub fn add_output(&mut self, output: NodeId) {
         self.outputs.push(output);
     }
-
 }
 
 impl Default for AigGraph {
