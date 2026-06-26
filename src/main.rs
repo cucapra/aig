@@ -19,17 +19,17 @@ fn main() -> io::Result<()> {
         ));
     }
 
-    let input = &args[1];
-    let pre_optimize = args.iter().any(|arg| arg == "--pre-optimize");
+    let input: &String = &args[1];
+    let pre_optimize: bool = args.iter().any(|arg| arg == "--pre-optimize");
 
-    let graph = if input == "-" {
-        let stdin = io::stdin();
-        let mut reader = BufReader::new(stdin.lock());
+    let graph: aig_graph::AigGraph = if input == "-" {
+        let stdin: io::Stdin = io::stdin();
+        let mut reader: BufReader<io::StdinLock<'_>> = BufReader::new(stdin.lock());
 
         run_parser_with_options(&mut reader, pre_optimize)?
     } else {
-        let file = File::open(input)?;
-        let mut reader = BufReader::new(file);
+        let file: File = File::open(input)?;
+        let mut reader: BufReader<File> = BufReader::new(file);
 
         run_parser_with_options(&mut reader, pre_optimize)?
     };
