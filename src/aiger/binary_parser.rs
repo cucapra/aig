@@ -75,6 +75,39 @@ pub fn parse_binary_aiger_into_graph(
     Ok(graph)
 }
 
+/// Decodes the binary-encoded AND gate representation.
+///
+/// In binary AIGER, each AND gate is stored using two deltas values, where:
+///
+/// ```text
+/// delta0 = lhs  - rhs0
+/// delta1 = rhs0 - rhs1
+/// ```
+///
+/// Given `lhs`, these deltas let us recover:
+///
+/// ```text
+/// rhs0 = lhs  - delta0
+/// rhs1 = rhs0 - delta1
+/// ```
+///
+/// Each delta is encoded as a variable-length little-endian integer.
+/// In each byte, the most significant bit is a continuation bit:
+///
+/// - `1` means the integer continues in the next byte.
+/// - `0` means this byte is the last byte of the current integer.
+///
+/// Therefore, the decoder first reads bytes until it finishes `delta0`,
+/// then reads bytes until it finishes `delta1` (on the second call to the function, resuing the same reader)
+///
+/// AIGER requires the ordering:
+///
+/// ```text
+/// lhs > rhs0 >= rhs1
+/// ```
+///
+/// This guarantees that both deltas are nonnegative. In practice, the
+/// deltas are usually small, which makes the encoding nice and compact!
 fn read_delta(reader: &mut impl Read) -> Result<usize, Error> {
     let mut value: usize = 0usize;
     let mut shift: u32 = 0u32;
