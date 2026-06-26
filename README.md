@@ -123,18 +123,35 @@ graph[1] = input node -> NodeId(4)
 graph[2] = input node -> NodeId(6)
 ```
 
+Latches are also stored as graph nodes. They are recognized by setting the left child to the same marker and storing the latch input, or next-state signal, in the right child:
+
+```rust
+AigNode {
+    left: INPUT_NODE_MARKER,
+    right: next_state,
+}
+```
+
+This lets latch state variables have stable `NodeId`s like inputs and AND nodes, while the right side points to the signal that drives the latch on the next step.
+
 
 
 
 
 ## AIGER Input Support
 
-The parser currently supports ASCII .aiger files only. Binary .aiger files are not supported yet.
+The parser supports both ASCII `.aag` files and binary `.aig` files.
 
 ASCII AIGER files begin with a header of the form:
 
 ```text
 aag M I L O A
+```
+
+Binary AIGER files use the same counts with an `aig` header:
+
+```text
+aig M I L O A
 ```
 
 where:
@@ -153,15 +170,31 @@ The header must satisfy:
 M >= I + L + A
 ```
 
-At the moment, latches are not supported, so the parser requires:
+Latch lines are supported in the ASCII parser:
 
 ```text
-L = 0
+<latch literal> <next-state literal> [reset]
+```
+
+The optional reset field is currently accepted only when it is `0`, because reset values are not represented in `AigNode`.
+
+In binary AIGER, input literals and latch current-state literals are implicit. The parser reads one next-state literal per latch, one output literal per output, then decodes each AND gate from its binary delta encoding. Binary files must satisfy:
+
+```text
+M = I + L + A
+```
+
+The parser is split by responsibility:
+
+```text
+src/aiger_parser.rs         = header parsing, format validation, dispatch
+src/aiger_ascii_parser.rs   = ASCII body parsing
+src/aiger_binary_parser.rs  = binary body parsing
 ```
 
 ## Parsing an AIGER File
 
-To parse an ASCII AIGER file, use:
+To parse an AIGER file, use:
 
 ```rust
 run_parser_with_options(file_name: &str, pre_optimize: bool) -> io::Result<()>
@@ -171,6 +204,7 @@ Example:
 
 ```rust
 run_parser_with_options("example.aag", true)?;
+run_parser_with_options("example.aig", true)?;
 ```
 
 The `pre_optimize` option controls whether the parser performs simple on-the-fly optimizations while building the graph.
@@ -186,5 +220,3 @@ x & !x    = false
 ```
 
 If `pre_optimize` is `false`, the parser builds the graph directly from the AIGER file without applying these simplifications.
-
-

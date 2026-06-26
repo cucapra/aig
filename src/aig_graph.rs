@@ -18,6 +18,8 @@ pub struct AigNode {
 pub struct AigGraph {
     graph: Vec<AigNode>,
     and_hash: HashMap<AigNode, NodeId>,
+    inputs: Vec<NodeId>,
+    latches: Vec<NodeId>,
     outputs: Vec<NodeId>,
 }
 
@@ -54,9 +56,10 @@ impl NodeId {
             .expect("Tried to index graph using a constant (true or false)")
     }
 
+    // Given a NodeId, find the Vec index of the underlying real node.
     fn to_index(self) -> Option<usize> {
         if self.is_const() {
-            None
+            None // constants aren't stored in the graph
         } else {
             // NodeId(2) -> graph[0]
             // NodeId(4) -> graph[1]
@@ -65,6 +68,7 @@ impl NodeId {
         }
     }
 
+    // Given a Vec index, produce the regular non-inverted NodeId.
     fn from_index(index: usize) -> Self {
         // graph[0] -> NodeId(2)
         // graph[1] -> NodeId(4)
@@ -85,6 +89,13 @@ impl AigNode {
         }
     }
 
+    fn new_latch(latch_id: NodeId) -> Self {
+        Self {
+            left: INPUT_NODE_MARKER,
+            right: latch_id,
+        }
+    }
+
     pub fn left(&self) -> NodeId {
         self.left
     }
@@ -96,6 +107,14 @@ impl AigNode {
     pub fn is_input(&self) -> bool {
         self.left.regular() == INPUT_NODE_MARKER && self.right.regular() == INPUT_NODE_MARKER
     }
+
+    pub fn is_latch(&self) -> bool {
+        self.left.regular() == INPUT_NODE_MARKER && self.right.regular() != INPUT_NODE_MARKER
+    }
+
+    pub fn is_and(&self) -> bool {
+        self.left.regular() != INPUT_NODE_MARKER
+    }
 }
 
 impl AigGraph {
@@ -103,33 +122,173 @@ impl AigGraph {
         Self {
             graph: Vec::new(),
             and_hash: HashMap::new(),
+            inputs: Vec::new(),
+            latches: Vec::new(),
             outputs: Vec::new(),
         }
     }
 
-    pub fn len(&self) -> usize {
-        self.graph.len()
+    pub fn to_dot(&self) -> String {
+        let mut dot: String = String::new();
+
+        dot.push_str(
+            "digraph AIG {\n\
+        \trankdir=BT;\n\
+        \tordering=out;\n\
+        \tnode [fontname=\"Helvetica\"];\n\
+        \tedge [fontname=\"Helvetica\"];\n\n\
+        \tconst_false [label=\"false\", shape=box];\n\
+        \tconst_true [label=\"true\", shape=box];\n\n",
+        );
+
+        for (input_index, input_id) in self.inputs.iter().enumerate() {
+            let node_name = Self::dot_name(input_id.regular());
+            let input_label = Self::input_label(input_index);
+
+            dot.push_str(&format!(
+                "\t{} [label=\"{}\", shape=box];\n",
+                node_name, input_label
+            ));
+        }
+
+        dot.push_str("\n");
+
+        for (latch_index, latch_id) in self.latches.iter().enumerate() {
+            let node_name = Self::dot_name(latch_id.regular());
+
+            dot.push_str(&format!(
+                "\t{} [label=\"l{}\", shape=box, style=rounded];\n",
+                node_name, latch_index
+            ));
+        }
+
+        dot.push_str("\n");
+
+        for (index, node) in self.graph.iter().enumerate() {
+            if node.is_and() {
+                let node_id = NodeId::from_index(index);
+                let node_name = Self::dot_name(node_id);
+
+                dot.push_str(&format!("\t{} [label=\"AND\", shape=circle];\n", node_name));
+            }
+        }
+
+        dot.push_str("\n");
+
+        for (index, node) in self.graph.iter().enumerate() {
+            if node.is_and() {
+                let parent_id = NodeId::from_index(index);
+                let parent_name = Self::dot_name(parent_id);
+
+                Self::write_dot_edge(&mut dot, node.left(), &parent_name, "left");
+                Self::write_dot_edge(&mut dot, node.right(), &parent_name, "right");
+            }
+        }
+
+        dot.push_str("\n");
+
+        for latch_id in &self.latches {
+            let latch = &self[*latch_id];
+            let latch_name = Self::dot_name(latch_id.regular());
+
+            Self::write_dot_edge(&mut dot, latch.right(), &latch_name, "next");
+        }
+
+        dot.push_str("\n");
+
+        for (index, output) in self.outputs.iter().enumerate() {
+            let output_name = format!("out{}", index);
+
+            dot.push_str(&format!(
+                "\t{} [label=\"out{}\", shape=box];\n",
+                output_name, index
+            ));
+
+            Self::write_dot_edge(&mut dot, *output, &output_name, "");
+        }
+
+        dot.push_str("}\n");
+
+        dot
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.graph.is_empty()
+    fn write_dot_edge(dot: &mut String, child: NodeId, parent_name: &str, edge_label: &str) {
+        let child_name = Self::dot_name(child.regular());
+
+        if edge_label.is_empty() {
+            if child.is_inverted() {
+                dot.push_str(&format!(
+                    "\t{} -> {} [style=dashed];\n",
+                    child_name, parent_name
+                ));
+            } else {
+                dot.push_str(&format!("\t{} -> {};\n", child_name, parent_name));
+            }
+        } else if child.is_inverted() {
+            dot.push_str(&format!(
+                "\t{} -> {} [label=\"{}\", style=dashed];\n",
+                child_name, parent_name, edge_label
+            ));
+        } else {
+            dot.push_str(&format!(
+                "\t{} -> {} [label=\"{}\"];\n",
+                child_name, parent_name, edge_label
+            ));
+        }
     }
 
-    pub fn const_false(&self) -> NodeId {
-        NodeId::FALSE
+    fn dot_name(id: NodeId) -> String {
+        if id.is_false() {
+            String::from("const_false")
+        } else if id.is_true() {
+            String::from("const_true")
+        } else {
+            format!("n{}", id.index())
+        }
     }
 
-    pub fn const_true(&self) -> NodeId {
-        NodeId::TRUE
+    // to represent inputs as letters instead of numbers
+    fn input_label(index: usize) -> String {
+        if index < 26 {
+            ((b'a' + index as u8) as char).to_string()
+        } else {
+            let prefix = Self::input_label((index / 26) - 1);
+            let suffix = (b'a' + (index % 26) as u8) as char;
+
+            format!("{}{}", prefix, suffix)
+        }
     }
 
     pub fn add_input(&mut self) -> NodeId {
+        let index: usize = self.graph.len();
+        let id: NodeId = NodeId::from_index(index);
+
+        self.graph.push(AigNode::new_input());
+        self.inputs.push(id);
+
+        id
+    }
+
+    pub fn add_latch(&mut self, latch_input: NodeId) -> NodeId {
         let index = self.graph.len();
         let id = NodeId::from_index(index);
 
-        self.graph.push(AigNode::new_input());
+        self.graph.push(AigNode::new_latch(latch_input));
+        self.latches.push(id);
 
         id
+    }
+
+    pub fn set_latch_input(&mut self, latch_id: NodeId, latch_input: NodeId) {
+        let latch_index = latch_id.index();
+        let latch = &mut self.graph[latch_index];
+
+        assert!(
+            latch.is_latch(),
+            "Tried to set the input of a non-latch node"
+        );
+
+        *latch = AigNode::new_latch(latch_input);
     }
 
     pub fn add_and_raw(&mut self, left: NodeId, right: NodeId) -> NodeId {
@@ -195,13 +354,6 @@ impl AigGraph {
         self.outputs.push(output);
     }
 
-    pub fn num_outputs(&self) -> usize {
-        self.outputs.len()
-    }
-
-    pub fn output(&self, index: usize) -> Option<NodeId> {
-        self.outputs.get(index).copied()
-    }
 }
 
 impl Default for AigGraph {
