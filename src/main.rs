@@ -2,12 +2,10 @@ use std::env;
 use std::fs::{self, File};
 use std::io::{self, BufReader, Error, ErrorKind};
 
-mod aig_graph;
-mod aiger_ascii_parser;
-mod aiger_binary_parser;
-mod aiger_parser;
+pub mod aiger;
+pub mod graph;
 
-use crate::aiger_parser::run_parser_with_options;
+use aiger::run_parser_with_options;
 
 fn main() -> io::Result<()> {
     let args: Vec<String> = env::args().collect();
@@ -22,7 +20,7 @@ fn main() -> io::Result<()> {
     let input: &String = &args[1];
     let pre_optimize: bool = args.iter().any(|arg| arg == "--pre-optimize");
 
-    let graph: aig_graph::AigGraph = if input == "-" {
+    let graph: graph::AigGraph = if input == "-" {
         let stdin: io::Stdin = io::stdin();
         let mut reader: BufReader<io::StdinLock<'_>> = BufReader::new(stdin.lock());
 

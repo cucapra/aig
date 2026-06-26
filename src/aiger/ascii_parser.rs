@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::io::{BufRead, Error};
 
-use crate::aig_graph::{AigGraph, NodeId};
-use crate::aiger_parser::{AigerHeader, lookup_aiger_literal, read_one_number_line};
+use crate::aiger::{AigerHeader, lookup_aiger_literal, read_one_number_line};
+use crate::graph::{AigGraph, NodeId};
 
 pub fn parse_ascii_aiger_into_graph(
     header: AigerHeader,

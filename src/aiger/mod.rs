@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 use std::io::{self, BufRead, Error};
 
-use crate::aig_graph::{AigGraph, NodeId};
-use crate::aiger_ascii_parser::parse_ascii_aiger_into_graph;
-use crate::aiger_binary_parser::parse_binary_aiger_into_graph;
+mod ascii_parser;
+mod binary_parser;
+
+use crate::graph::{AigGraph, NodeId};
+use ascii_parser::parse_ascii_aiger_into_graph;
+use binary_parser::parse_binary_aiger_into_graph;
 
 #[derive(Debug)]
 pub struct AigerHeader {
