@@ -1,0 +1,34 @@
+digraph AIG {
+	rankdir=BT;
+	ordering=out;
+	node [fontname="Helvetica"];
+	edge [fontname="Helvetica"];
+
+	const_false [label="false", shape=box];
+
+	n0 [label="a", shape=box];
+	n1 [label="b", shape=box];
+	n2 [label="c", shape=box];
+
+
+	n3 [label="AND", shape=circle];
+	n4 [label="AND", shape=circle];
+	n5 [label="AND", shape=circle];
+	n6 [label="AND", shape=circle];
+	n7 [label="AND", shape=circle];
+
+	n2 -> n3 [label="left"];
+	n0 -> n3 [label="right"];
+	n1 -> n4 [label="left"];
+	n0 -> n4 [label="right"];
+	n4 -> n5 [label="left", style=dashed];
+	n3 -> n5 [label="right", style=dashed];
+	n2 -> n6 [label="left"];
+	n1 -> n6 [label="right"];
+	n6 -> n7 [label="left", style=dashed];
+	n5 -> n7 [label="right"];
+
+
+	out0 [label="out0", shape=box];
+	n7 -> out0 [style=dashed];
+}

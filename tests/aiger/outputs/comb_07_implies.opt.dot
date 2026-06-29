@@ -5,7 +5,6 @@ digraph AIG {
 	edge [fontname="Helvetica"];
 
 	const_false [label="false", shape=box];
-	const_true [label="true", shape=box];
 
 	n0 [label="a", shape=box];
 	n1 [label="b", shape=box];
@@ -14,9 +13,9 @@ digraph AIG {
 	n2 [label="AND", shape=circle];
 
 	n0 -> n2 [label="left"];
-	n1 -> n2 [label="right"];
+	n1 -> n2 [label="right", style=dashed];
 
 
 	out0 [label="out0", shape=box];
-	n2 -> out0;
+	n2 -> out0 [style=dashed];
 }

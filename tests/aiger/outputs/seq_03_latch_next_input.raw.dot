@@ -1,0 +1,19 @@
+digraph AIG {
+	rankdir=BT;
+	ordering=out;
+	node [fontname="Helvetica"];
+	edge [fontname="Helvetica"];
+
+	const_false [label="false", shape=box];
+
+	n0 [label="a", shape=box];
+
+	n1 [label="l0", shape=box, style=rounded];
+
+
+
+	n0 -> n1 [label="next"];
+
+	out0 [label="out0", shape=box];
+	n1 -> out0;
+}

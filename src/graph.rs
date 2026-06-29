@@ -137,8 +137,7 @@ impl AigGraph {
         \tordering=out;\n\
         \tnode [fontname=\"Helvetica\"];\n\
         \tedge [fontname=\"Helvetica\"];\n\n\
-        \tconst_false [label=\"false\", shape=box];\n\
-        \tconst_true [label=\"true\", shape=box];\n\n",
+        \tconst_false [label=\"false\", shape=box];\n\n",
         );
 
         for (input_index, input_id) in self.inputs.iter().enumerate() {
