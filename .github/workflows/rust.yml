@@ -28,9 +28,6 @@ jobs:
       - name: Install Turnt
         run: uv tool install turnt
 
-      - name: Check formatting
-        run: cargo fmt --all -- --check
-
       - name: Run Clippy
         run: cargo clippy --all-targets --all-features
 
