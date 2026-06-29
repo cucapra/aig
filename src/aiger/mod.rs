@@ -92,24 +92,46 @@ pub fn read_one_number_line(reader: &mut impl BufRead) -> Result<usize, Error> {
     Ok(trimmed)
 }
 
-pub fn lookup_aiger_literal(
-    aiger_lit: usize,
-    lit_to_node: &HashMap<usize, NodeId>,
-) -> Result<NodeId, Error> {
-    match lit_to_node.get(&aiger_lit).copied() {
-        Some(node_id) => Ok(node_id),
+/// A mapping from AIGER literal indices to our internal `NodeId`s.
+#[derive(Default)]
+struct Literals(HashMap<usize, NodeId>);
 
-        None => {
-            let regular_lit: usize = aiger_lit & !1;
-            let is_inverted: bool = (aiger_lit & 1) == 1;
+impl Literals {
+    fn new() -> Self {
+        let mut map = HashMap::new();
+        map.insert(0, NodeId::FALSE);
+        map.insert(1, NodeId::TRUE);
+        Self(map)
+    }
 
-            match lit_to_node.get(&regular_lit).copied() {
-                Some(regular_node) => Ok(if is_inverted {
-                    regular_node.invert()
-                } else {
-                    regular_node
-                }),
-                None => panic!("Unknown aiger literal: {}", aiger_lit),
+    /// Record that a given AIGER literal corresponds to a given fresh `NodeID`.
+    fn add(&mut self, literal: usize, id: NodeId) {
+        debug_assert!(!self.0.contains_key(&literal));
+        self.0.insert(literal, id);
+    }
+
+    /// Get the `NodeID` corresponding to a given AIGER literal.
+    ///
+    /// Panic if the literal is not present.
+    fn get(&self, literal: usize) -> NodeId {
+        // First, try the literal directly.
+        match self.0.get(&literal) {
+            Some(&id) => id,
+            // If that fails, it might be because the literal is inverted. Try
+            // regularizing the literal and look again.
+            None => {
+                let regular_lit: usize = literal & !1;
+                let is_inverted: bool = (literal & 1) == 1;
+                match self.0.get(&regular_lit) {
+                    Some(&regular_node) => {
+                        if is_inverted {
+                            regular_node.invert()
+                        } else {
+                            regular_node
+                        }
+                    }
+                    None => panic!("Unknown aiger literal: {}", literal),
+                }
             }
         }
     }

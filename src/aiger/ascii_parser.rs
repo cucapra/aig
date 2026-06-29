@@ -1,7 +1,6 @@
-use std::collections::HashMap;
 use std::io::{BufRead, Error};
 
-use crate::aiger::{AigerHeader, lookup_aiger_literal, read_one_number_line};
+use crate::aiger::{AigerHeader, Literals, read_one_number_line};
 use crate::graph::{AigGraph, NodeId};
 
 pub fn parse_ascii_aiger_into_graph(
@@ -10,16 +9,13 @@ pub fn parse_ascii_aiger_into_graph(
     pre_optimize: bool,
 ) -> Result<AigGraph, Error> {
     let mut graph: AigGraph = AigGraph::new();
-    let mut lit_to_node: HashMap<usize, NodeId> = HashMap::new();
-
-    lit_to_node.insert(0, NodeId::FALSE);
-    lit_to_node.insert(1, NodeId::TRUE);
+    let mut literals = Literals::new();
 
     for _ in 0..header.i {
         let input_lit: usize = read_one_number_line(reader)?;
 
         let input_id: NodeId = graph.add_input();
-        lit_to_node.insert(input_lit, input_id);
+        literals.add(input_lit, input_id);
     }
 
     let mut latch_inputs: Vec<(NodeId, usize)> = Vec::new();
@@ -31,7 +27,7 @@ pub fn parse_ascii_aiger_into_graph(
         let (latch_lit, latch_input_lit) = read_latch_line(reader)?;
 
         let latch_id = graph.add_latch(NodeId::FALSE);
-        lit_to_node.insert(latch_lit, latch_id);
+        literals.add(latch_lit, latch_id);
         latch_inputs.push((latch_id, latch_input_lit));
     }
 
@@ -46,8 +42,8 @@ pub fn parse_ascii_aiger_into_graph(
     for _ in 0..header.a {
         let (lhs_lit, rhs0_lit, rhs1_lit) = read_and_line(reader)?;
 
-        let left: NodeId = lookup_aiger_literal(rhs0_lit, &lit_to_node)?;
-        let right: NodeId = lookup_aiger_literal(rhs1_lit, &lit_to_node)?;
+        let left: NodeId = literals.get(rhs0_lit);
+        let right: NodeId = literals.get(rhs1_lit);
 
         let and_id: NodeId = if pre_optimize {
             graph.add_and_optimized(left, right)
@@ -55,18 +51,18 @@ pub fn parse_ascii_aiger_into_graph(
             graph.add_and_raw(left, right)
         };
 
-        lit_to_node.insert(lhs_lit, and_id);
+        literals.add(lhs_lit, and_id);
     }
 
     // now resolve lateches!
     for (latch_id, latch_input_lit) in latch_inputs {
-        let latch_input_id: NodeId = lookup_aiger_literal(latch_input_lit, &lit_to_node)?;
+        let latch_input_id: NodeId = literals.get(latch_input_lit);
         graph.set_latch_input(latch_id, latch_input_id);
     }
 
     // now resolve outputs!
     for output_lit in output_lits {
-        let output_id: NodeId = lookup_aiger_literal(output_lit, &lit_to_node)?;
+        let output_id: NodeId = literals.get(output_lit);
         graph.add_output(output_id);
     }
 
