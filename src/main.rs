@@ -13,12 +13,14 @@ fn main() -> io::Result<()> {
     if args.len() < 2 {
         return Err(Error::new(
             ErrorKind::InvalidInput,
-            "Usage: cargo run -- <input.aag|input.aig|-> [--pre-optimize]",
+            "Usage: cargo run -- <input.aag|input.aig|-> [--pre-optimize] [--stdout]",
         ));
     }
 
     let input: &String = &args[1];
+
     let pre_optimize: bool = args.iter().any(|arg| arg == "--pre-optimize");
+    let write_to_stdout: bool = args.iter().any(|arg| arg == "--stdout");
 
     let graph: graph::AigGraph = if input == "-" {
         let stdin: io::Stdin = io::stdin();
@@ -32,9 +34,14 @@ fn main() -> io::Result<()> {
         run_parser_with_options(&mut reader, pre_optimize)?
     };
 
-    fs::write("graph.dot", graph.to_dot())?;
+    let dot: String = graph.to_dot();
 
-    println!("Wrote graph.dot");
+    if write_to_stdout {
+        print!("{}", dot);
+    } else {
+        fs::write("graph.dot", dot)?;
+        println!("Wrote graph.dot");
+    }
 
     Ok(())
 }

@@ -24,15 +24,11 @@ pub fn run_parser_with_options(
 ) -> io::Result<AigGraph> {
     let header: AigerHeader = verify_aiger_header(reader)?;
 
-    println!("Input file is a valid AIGER file. Layout: {:?}", header);
-
     let graph: AigGraph = if header.is_ascii {
         parse_ascii_aiger_into_graph(header, reader, pre_optimize)?
     } else {
         parse_binary_aiger_into_graph(header, reader, pre_optimize)?
     };
-
-    println!("Parsed AIG graph successfully");
 
     Ok(graph)
 }

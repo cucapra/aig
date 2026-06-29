@@ -1,0 +1,9 @@
+[envs.raw]
+command = "cargo run --quiet -- {filename} --stdout"
+out_dir = "../outputs"
+output."raw.dot" = "-"
+
+[envs.opt]
+command = "cargo run --quiet -- {filename} --pre-optimize --stdout"
+out_dir = "../outputs"
+output."opt.dot" = "-"
