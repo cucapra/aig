@@ -38,4 +38,4 @@ jobs:
         run: cargo test --all
 
       - name: Run AIGER snapshot tests
-        run: turnt tests/aiger/cases/*
+        run: turnt tests/aiger/inputs/*.aag
