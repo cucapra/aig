@@ -106,33 +106,30 @@ impl Literals {
 
     /// Record that a given AIGER literal corresponds to a given fresh `NodeID`.
     fn add(&mut self, literal: usize, id: NodeId) {
-        debug_assert!(!self.0.contains_key(&literal));
-        self.0.insert(literal, id);
+        if literal & 1 == 0 {
+            // The literal is already positive.
+            self.0.insert(literal, id);
+        } else {
+            // The literal is negated; map the positive version instead.
+            self.0.insert(literal & !1, id.invert());
+        }
     }
 
     /// Get the `NodeID` corresponding to a given AIGER literal.
     ///
     /// Panic if the literal is not present.
     fn get(&self, literal: usize) -> NodeId {
-        // First, try the literal directly.
-        match self.0.get(&literal) {
-            Some(&id) => id,
-            // If that fails, it might be because the literal is inverted. Try
-            // regularizing the literal and look again.
-            None => {
-                let regular_lit: usize = literal & !1;
-                let is_inverted: bool = (literal & 1) == 1;
-                match self.0.get(&regular_lit) {
-                    Some(&regular_node) => {
-                        if is_inverted {
-                            regular_node.invert()
-                        } else {
-                            regular_node
-                        }
-                    }
-                    None => panic!("Unknown aiger literal: {}", literal),
+        let regular_lit = literal & !1;
+        let is_inverted = (literal & 1) == 1;
+        match self.0.get(&regular_lit) {
+            Some(&regular_node) => {
+                if is_inverted {
+                    regular_node.invert()
+                } else {
+                    regular_node
                 }
             }
+            None => panic!("Unknown aiger literal: {}", literal),
         }
     }
 }
