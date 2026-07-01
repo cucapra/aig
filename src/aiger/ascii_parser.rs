@@ -18,7 +18,7 @@ pub fn parse_ascii_aiger_into_graph(
         literals.add(input_lit, input_id);
     }
 
-    let mut latch_inputs: Vec<(NodeId, usize)> = Vec::new();
+    let mut latch_inputs: Vec<(NodeId, usize)> = Vec::with_capacity(header.num_latches);
 
     // note: we add Nodeid::FALSE because latches may
     // contain nodes that are not defined yet (ex. AND nodes),
@@ -32,7 +32,7 @@ pub fn parse_ascii_aiger_into_graph(
     }
 
     // same idea for outputs! save 'em for later
-    let mut output_lits: Vec<usize> = Vec::new();
+    let mut output_lits: Vec<usize> = Vec::with_capacity(header.num_outputs);
 
     for _ in 0..header.num_outputs {
         let output_lit = read_one_number_line(reader)?;
@@ -102,4 +102,103 @@ fn read_and_line(reader: &mut impl BufRead) -> Result<(usize, usize, usize), Err
     let rhs1: usize = parts[2].parse().unwrap();
 
     Ok((lhs, rhs0, rhs1))
+}
+
+#[derive(Default)]
+struct LineParser {
+    buf: Vec<u8>,
+    pos: usize,
+}
+
+impl LineParser {
+    fn new(buf: Vec<u8>) -> Self {
+        Self { buf, pos: 0 }
+    }
+
+    fn clear(&mut self) {
+        self.buf.clear();
+        self.pos = 0;
+    }
+
+    fn rest(&self) -> &[u8] {
+        &self.buf[self.pos..]
+    }
+
+    fn read<R: BufRead>(&mut self, stream: &mut R) -> std::io::Result<()> {
+        self.clear();
+        stream.read_until(b'\n', &mut self.buf)?;
+        // TODO detect EOF
+        Ok(())
+    }
+
+    fn peek(&self) -> Option<u8> {
+        self.buf.get(self.pos).copied()
+    }
+
+    fn skip(&mut self) {
+        debug_assert!(self.pos < self.buf.len());
+        self.pos += 1;
+    }
+
+    fn pop_if(&mut self, pred: impl Fn(u8) -> bool) -> Option<u8> {
+        if let Some(byte) = self.peek()
+            && pred(byte)
+        {
+            self.skip();
+            Some(byte)
+        } else {
+            None
+        }
+    }
+
+    fn parse_int(&mut self) -> Option<usize> {
+        let mut out: Option<usize> = None;
+
+        while let Some(byte) = self.pop_if(|b| b.is_ascii_digit()) {
+            let value = byte - b'0';
+            out = Some(match out {
+                Some(old) => old * 10 + (value as usize),
+                None => value as usize,
+            });
+        }
+
+        out
+    }
+
+    fn skip_whitespace(&mut self) {
+        while self.pop_if(|b| b.is_ascii_whitespace()).is_some() {}
+    }
+
+    fn parse_ints<const N: usize>(&mut self) -> [usize; N] {
+        std::array::from_fn(|_| {
+            self.skip_whitespace();
+            self.parse_int().expect("not enough ints")
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn just_int() {
+        let mut parser = LineParser::new("42".as_bytes().to_vec());
+        assert_eq!(parser.parse_int(), Some(42));
+        assert!(parser.rest().is_empty());
+    }
+
+    #[test]
+    fn int_with_stuff() {
+        let mut parser = LineParser::new("42x".as_bytes().to_vec());
+        assert_eq!(parser.parse_int(), Some(42));
+        assert_eq!(parser.rest().len(), 1);
+    }
+
+    #[test]
+    fn two_ints() {
+        let mut parser = LineParser::new("42 27 x".as_bytes().to_vec());
+        assert_eq!(parser.parse_ints(), [42, 27]);
+        assert_eq!(parser.rest().len(), 2);
+    }
 }
