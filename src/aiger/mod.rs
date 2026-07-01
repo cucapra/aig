@@ -224,6 +224,36 @@ impl LineParser {
     }
 }
 
+/// A utility for reading integers from lines in a text stream.
+///
+/// This wraps `LineReader` in utilities for consuming lines directly from a
+/// `BufRead` stream.
+struct LineReader<'a, R: BufRead> {
+    reader: &'a mut R,
+    parser: LineParser,
+}
+
+impl<'a, R: BufRead> LineReader<'a, R> {
+    fn new(reader: &'a mut R) -> Self {
+        LineReader {
+            reader,
+            parser: LineParser::default(),
+        }
+    }
+
+    /// Read a line containing a single integer.
+    fn read_int(&mut self) -> std::io::Result<Option<usize>> {
+        self.parser.read_line(self.reader)?;
+        Ok(self.parser.parse_int())
+    }
+
+    /// Read a line containing a whitespace-separated list of integers.
+    fn read_ints<const N: usize>(&mut self) -> std::io::Result<Option<[usize; N]>> {
+        self.parser.read_line(self.reader)?;
+        Ok(self.parser.parse_ints())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
