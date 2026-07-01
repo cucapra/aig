@@ -1,6 +1,6 @@
 use std::io::{BufRead, Error};
 
-use crate::aiger::{AigerHeader, Literals, read_one_number_line};
+use crate::aiger::{AigerHeader, Literals};
 use crate::graph::{AigBuilder, AigGraph, NodeId};
 
 pub fn parse_ascii_aiger_into_graph(
@@ -10,9 +10,10 @@ pub fn parse_ascii_aiger_into_graph(
 ) -> Result<AigGraph, Error> {
     let mut graph = AigBuilder::new();
     let mut literals = Literals::new();
+    let mut line_reader = LineReader::new(reader);
 
     for _ in 0..header.num_inputs {
-        let input_lit: usize = read_one_number_line(reader)?;
+        let input_lit = line_reader.read_int()?.expect("malformed input line");
 
         let input_id: NodeId = graph.add_input();
         literals.add(input_lit, input_id);
@@ -24,7 +25,7 @@ pub fn parse_ascii_aiger_into_graph(
     // contain nodes that are not defined yet (ex. AND nodes),
     // so we put them in the graph but save them in a hashmap for later
     for _ in 0..header.num_latches {
-        let (latch_lit, latch_input_lit) = read_latch_line(reader)?;
+        let [latch_lit, latch_input_lit] = line_reader.read_ints()?;
 
         let latch_id = graph.add_latch(NodeId::FALSE);
         literals.add(latch_lit, latch_id);
@@ -35,12 +36,12 @@ pub fn parse_ascii_aiger_into_graph(
     let mut output_lits: Vec<usize> = Vec::with_capacity(header.num_outputs);
 
     for _ in 0..header.num_outputs {
-        let output_lit = read_one_number_line(reader)?;
+        let output_lit = line_reader.read_int()?.expect("malformed output line");
         output_lits.push(output_lit);
     }
 
     for _ in 0..header.num_and_gates {
-        let (lhs_lit, rhs0_lit, rhs1_lit) = read_and_line(reader)?;
+        let [lhs_lit, rhs0_lit, rhs1_lit] = line_reader.read_ints()?;
 
         let left: NodeId = literals.get(rhs0_lit);
         let right: NodeId = literals.get(rhs1_lit);
@@ -69,41 +70,6 @@ pub fn parse_ascii_aiger_into_graph(
     Ok(graph.build())
 }
 
-fn read_latch_line(reader: &mut impl BufRead) -> Result<(usize, usize), Error> {
-    let mut line: String = String::new();
-
-    if (reader.read_line(&mut line)?) == 0 {
-        panic!("no data read from number line")
-    }
-
-    let parts: Vec<&str> = line.split_whitespace().collect();
-
-    let latch: usize = parts[0].parse().unwrap();
-    let input: usize = parts[1].parse().unwrap();
-
-    Ok((latch, input))
-}
-
-fn read_and_line(reader: &mut impl BufRead) -> Result<(usize, usize, usize), Error> {
-    let mut line: String = String::new();
-
-    if (reader.read_line(&mut line)?) == 0 {
-        panic!("no data read from number line")
-    }
-
-    let parts: Vec<&str> = line.split_whitespace().collect();
-
-    if parts.len() != 3 {
-        panic!("and gate must have 3 parts")
-    }
-
-    let lhs: usize = parts[0].parse().unwrap();
-    let rhs0: usize = parts[1].parse().unwrap();
-    let rhs1: usize = parts[2].parse().unwrap();
-
-    Ok((lhs, rhs0, rhs1))
-}
-
 #[derive(Default)]
 struct LineParser {
     buf: Vec<u8>,
@@ -122,13 +88,6 @@ impl LineParser {
 
     fn rest(&self) -> &[u8] {
         &self.buf[self.pos..]
-    }
-
-    fn read<R: BufRead>(&mut self, stream: &mut R) -> std::io::Result<()> {
-        self.clear();
-        stream.read_until(b'\n', &mut self.buf)?;
-        // TODO detect EOF
-        Ok(())
     }
 
     fn peek(&self) -> Option<u8> {
@@ -174,6 +133,37 @@ impl LineParser {
             self.skip_whitespace();
             self.parse_int().expect("not enough ints")
         })
+    }
+}
+
+struct LineReader<'a, R: BufRead> {
+    reader: &'a mut R,
+    parser: LineParser,
+}
+
+impl<'a, R: BufRead> LineReader<'a, R> {
+    fn new(reader: &'a mut R) -> Self {
+        LineReader {
+            reader,
+            parser: LineParser::default(),
+        }
+    }
+
+    fn read_line(&mut self) -> std::io::Result<()> {
+        self.parser.clear();
+        self.reader.read_until(b'\n', &mut self.parser.buf)?;
+        // TODO detect EOF
+        Ok(())
+    }
+
+    fn read_int(&mut self) -> std::io::Result<Option<usize>> {
+        self.read_line()?;
+        Ok(self.parser.parse_int())
+    }
+
+    fn read_ints<const N: usize>(&mut self) -> std::io::Result<[usize; N]> {
+        self.read_line()?;
+        Ok(self.parser.parse_ints())
     }
 }
 
