@@ -11,11 +11,11 @@ use binary_parser::parse_binary_aiger_into_graph;
 #[derive(Debug)]
 pub struct AigerHeader {
     pub is_ascii: bool,
-    pub m: usize,
-    pub i: usize,
-    pub l: usize,
-    pub o: usize,
-    pub a: usize,
+    pub max_var: usize,
+    pub num_inputs: usize,
+    pub num_latches: usize,
+    pub num_outputs: usize,
+    pub num_and_gates: usize,
 }
 
 pub fn run_parser_with_options(
@@ -49,34 +49,34 @@ pub fn verify_aiger_header(reader: &mut impl BufRead) -> Result<AigerHeader, Err
         _ => panic!("Invalid tag, must be either 'aag' or 'aig'"),
     };
 
-    let m: usize = parts[1].parse().unwrap();
-    let i: usize = parts[2].parse().unwrap();
-    let l: usize = parts[3].parse().unwrap();
-    let o: usize = parts[4].parse().unwrap();
-    let a: usize = parts[5].parse().unwrap();
-    let expected_m: usize = i + l + a;
+    let max_var: usize = parts[1].parse().unwrap();
+    let num_inputs: usize = parts[2].parse().unwrap();
+    let num_latches: usize = parts[3].parse().unwrap();
+    let num_outputs: usize = parts[4].parse().unwrap();
+    let num_and_gates: usize = parts[5].parse().unwrap();
+    let expected_max_var: usize = num_inputs + num_latches + num_and_gates;
 
-    if m < expected_m {
+    if max_var < expected_max_var {
         panic!(
             "ASCII AIGER requires M >= I + L + A, Binary requires M = I + L + A, got M={} and I+L+A={}",
-            m, expected_m
+            max_var, expected_max_var
         )
     }
 
-    if m != expected_m && !is_ascii {
+    if max_var != expected_max_var && !is_ascii {
         panic!(
             "Binary AIGER requires M = I + L + A, got M={} and I+L+A={}",
-            m, expected_m
+            max_var, expected_max_var
         );
     }
 
     Ok(AigerHeader {
         is_ascii,
-        m,
-        i,
-        l,
-        o,
-        a,
+        max_var,
+        num_inputs,
+        num_latches,
+        num_outputs,
+        num_and_gates,
     })
 }
 

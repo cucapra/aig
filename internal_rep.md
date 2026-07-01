@@ -2,7 +2,7 @@ The graph stores AIG nodes in a `Vec<AigNode>`:
 
 ```rust
 pub struct AigGraph {
-    graph: Vec<AigNode>,
+    nodes: Vec<AigNode>,
 }
 ```
 

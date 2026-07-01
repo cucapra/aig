@@ -1,17 +1,17 @@
 use std::io::{BufRead, Error, Read};
 
 use crate::aiger::{AigerHeader, Literals, read_one_number_line};
-use crate::graph::{AigGraph, NodeId};
+use crate::graph::{AigBuilder, AigGraph, NodeId};
 
 pub fn parse_binary_aiger_into_graph(
     header: AigerHeader,
     reader: &mut impl BufRead,
     pre_optimize: bool,
 ) -> Result<AigGraph, Error> {
-    let mut graph: AigGraph = AigGraph::new();
+    let mut graph = AigBuilder::new();
     let mut literals = Literals::new();
 
-    for input_index in 0..header.i {
+    for input_index in 0..header.num_inputs {
         let input_lit: usize = 2 * (input_index + 1);
         let input_id: NodeId = graph.add_input();
         literals.add(input_lit, input_id);
@@ -20,9 +20,9 @@ pub fn parse_binary_aiger_into_graph(
     // like in ascii parser, save latches for later
     let mut latch_inputs: Vec<(NodeId, usize)> = Vec::new();
 
-    for latch_index in 0..header.l {
+    for latch_index in 0..header.num_latches {
         let latch_input_lit: usize = read_one_number_line(reader)?;
-        let latch_lit: usize = 2 * (header.i + latch_index + 1);
+        let latch_lit: usize = 2 * (header.num_inputs + latch_index + 1);
         let latch_id: NodeId = graph.add_latch(NodeId::FALSE);
 
         literals.add(latch_lit, latch_id);
@@ -31,13 +31,13 @@ pub fn parse_binary_aiger_into_graph(
     // same idea for outputs
     let mut output_lits: Vec<usize> = Vec::new();
 
-    for _ in 0..header.o {
+    for _ in 0..header.num_outputs {
         let output_lit: usize = read_one_number_line(reader)?;
         output_lits.push(output_lit);
     }
 
-    for and_index in 0..header.a {
-        let lhs_lit: usize = 2 * (header.i + header.l + and_index + 1);
+    for and_index in 0..header.num_and_gates {
+        let lhs_lit: usize = 2 * (header.num_inputs + header.num_latches + and_index + 1);
         let delta0: usize = read_delta(reader)?;
         let delta1: usize = read_delta(reader)?;
 
@@ -59,7 +59,7 @@ pub fn parse_binary_aiger_into_graph(
     // resolve lacthes
     for (latch_id, latch_input_lit) in latch_inputs {
         let latch_input_id: NodeId = literals.get(latch_input_lit);
-        graph.set_latch_input(latch_id, latch_input_id);
+        graph.node(latch_id).set_latch_input(latch_input_id);
     }
 
     // resolve outputs
@@ -68,24 +68,23 @@ pub fn parse_binary_aiger_into_graph(
         graph.add_output(output_id);
     }
 
-    Ok(graph)
+    Ok(graph.build())
 }
 
 /// Decodes the binary-encoded AND gate representation.
 ///
 /// In binary AIGER, each AND gate is stored using two deltas values, where:
 ///
-/// ```text
+/// 
 /// delta0 = lhs  - rhs0
 /// delta1 = rhs0 - rhs1
-/// ```
-///
+/// 
 /// Given `lhs`, these deltas let us recover:
 ///
-/// ```text
+/// 
 /// rhs0 = lhs  - delta0
 /// rhs1 = rhs0 - delta1
-/// ```
+/// 
 ///
 /// Each delta is encoded as a variable-length little-endian integer.
 /// In each byte, the most significant bit is a continuation bit:
@@ -98,9 +97,9 @@ pub fn parse_binary_aiger_into_graph(
 ///
 /// AIGER requires the ordering:
 ///
-/// ```text
+/// 
 /// lhs > rhs0 >= rhs1
-/// ```
+/// 
 ///
 /// This guarantees that both deltas are nonnegative. In practice, the
 /// deltas are usually small, which makes the encoding nice and compact!

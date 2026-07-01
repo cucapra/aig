@@ -1,9 +1,9 @@
 [envs.raw]
-command = "cargo run --quiet -- {filename} --stdout"
+command = "../../target/debug/aig {filename} --stdout"
 out_dir = "../outputs"
 output."raw.dot" = "-"
 
 [envs.opt]
-command = "cargo run --quiet -- {filename} --pre-optimize --stdout"
+command = "../../target/debug/aig {filename} --pre-optimize --stdout"
 out_dir = "../outputs"
 output."opt.dot" = "-"

@@ -1,17 +1,17 @@
 use std::io::{BufRead, Error};
 
 use crate::aiger::{AigerHeader, Literals, read_one_number_line};
-use crate::graph::{AigGraph, NodeId};
+use crate::graph::{AigBuilder, AigGraph, NodeId};
 
 pub fn parse_ascii_aiger_into_graph(
     header: AigerHeader,
     reader: &mut impl BufRead,
     pre_optimize: bool,
 ) -> Result<AigGraph, Error> {
-    let mut graph: AigGraph = AigGraph::new();
+    let mut graph = AigBuilder::new();
     let mut literals = Literals::new();
 
-    for _ in 0..header.i {
+    for _ in 0..header.num_inputs {
         let input_lit: usize = read_one_number_line(reader)?;
 
         let input_id: NodeId = graph.add_input();
@@ -23,7 +23,7 @@ pub fn parse_ascii_aiger_into_graph(
     // note: we add Nodeid::FALSE because latches may
     // contain nodes that are not defined yet (ex. AND nodes),
     // so we put them in the graph but save them in a hashmap for later
-    for _ in 0..header.l {
+    for _ in 0..header.num_latches {
         let (latch_lit, latch_input_lit) = read_latch_line(reader)?;
 
         let latch_id = graph.add_latch(NodeId::FALSE);
@@ -34,12 +34,12 @@ pub fn parse_ascii_aiger_into_graph(
     // same idea for outputs! save 'em for later
     let mut output_lits: Vec<usize> = Vec::new();
 
-    for _ in 0..header.o {
+    for _ in 0..header.num_outputs {
         let output_lit = read_one_number_line(reader)?;
         output_lits.push(output_lit);
     }
 
-    for _ in 0..header.a {
+    for _ in 0..header.num_and_gates {
         let (lhs_lit, rhs0_lit, rhs1_lit) = read_and_line(reader)?;
 
         let left: NodeId = literals.get(rhs0_lit);
@@ -57,7 +57,7 @@ pub fn parse_ascii_aiger_into_graph(
     // now resolve lateches!
     for (latch_id, latch_input_lit) in latch_inputs {
         let latch_input_id: NodeId = literals.get(latch_input_lit);
-        graph.set_latch_input(latch_id, latch_input_id);
+        graph.node(latch_id).set_latch_input(latch_input_id);
     }
 
     // now resolve outputs!
@@ -66,7 +66,7 @@ pub fn parse_ascii_aiger_into_graph(
         graph.add_output(output_id);
     }
 
-    Ok(graph)
+    Ok(graph.build())
 }
 
 fn read_latch_line(reader: &mut impl BufRead) -> Result<(usize, usize), Error> {
