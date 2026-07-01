@@ -18,7 +18,7 @@ pub fn parse_ascii_aiger_into_graph(
         literals.add(input_lit, input_id);
     }
 
-    let mut latch_inputs: Vec<(NodeId, usize)> = Vec::new();
+    let mut latch_inputs: Vec<(NodeId, usize)> = Vec::with_capacity(header.num_latches);
 
     // note: we add Nodeid::FALSE because latches may
     // contain nodes that are not defined yet (ex. AND nodes),
@@ -32,7 +32,7 @@ pub fn parse_ascii_aiger_into_graph(
     }
 
     // same idea for outputs! save 'em for later
-    let mut output_lits: Vec<usize> = Vec::new();
+    let mut output_lits: Vec<usize> = Vec::with_capacity(header.num_outputs);
 
     for _ in 0..header.num_outputs {
         let output_lit = read_one_number_line(reader)?;
