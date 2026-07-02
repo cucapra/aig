@@ -9,7 +9,7 @@ pub fn parse_binary_aiger_into_graph(
     pre_optimize: bool,
 ) -> Result<AigGraph, Error> {
     let mut graph = AigBuilder::new();
-    let mut literals = Literals::new();
+    let mut literals = Literals::new(header.max_var);
 
     for input_index in 0..header.num_inputs {
         let input_lit: usize = 2 * (input_index + 1);

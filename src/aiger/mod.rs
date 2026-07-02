@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::io::{self, BufRead, Error};
 
 mod ascii_parser;
@@ -78,36 +77,34 @@ pub fn verify_aiger_header(reader: &mut impl BufRead) -> Result<AigerHeader, Err
 struct Literals(Vec<Option<NodeId>>);
 
 impl Literals {
-    fn new() -> Self {
-        let map = vec![Some(NodeId::FALSE), Some(NodeId::TRUE)];
+    fn new(max_var: usize) -> Self {
+        // We store one entry per *variable*: i.e., one entry in this mapping
+        // covers both the regular and inverted literals corresponding to the
+        // same node.
+        let mut map = vec![None; max_var + 1];
+        map[0] = Some(NodeId::FALSE);
         Self(map)
+    }
+
+    /// Split a literal into a variable index and an inverted flag.
+    fn split(literal: usize) -> (usize, bool) {
+        (literal >> 1, literal & 1 == 1)
     }
 
     /// Record that a given AIGER literal corresponds to a given fresh `NodeID`.
     fn add(&mut self, literal: usize, id: NodeId) {
-        // Resize so we have enough space for this literal.
-        if literal >= self.0.len() {
-            self.0.resize(literal + 1, None);
-        }
-
-        if literal & 1 == 0 {
-            // The literal is already positive.
-            self.0[literal] = Some(id);
-        } else {
-            // The literal is negated; map the positive version instead.
-            self.0[literal & !1] = Some(id.invert());
-        }
+        let (var_idx, inverted) = Self::split(literal);
+        self.0[var_idx] = Some(if inverted { id.invert() } else { id });
     }
 
     /// Get the `NodeID` corresponding to a given AIGER literal.
     ///
     /// Panic if the literal is not present.
     fn get(&self, literal: usize) -> NodeId {
-        let regular_lit = literal & !1;
-        let is_inverted = (literal & 1) == 1;
-        match self.0[regular_lit] {
+        let (var_idx, inverted) = Self::split(literal);
+        match self.0[var_idx] {
             Some(regular_node) => {
-                if is_inverted {
+                if inverted {
                     regular_node.invert()
                 } else {
                     regular_node

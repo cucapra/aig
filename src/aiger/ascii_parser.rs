@@ -9,7 +9,7 @@ pub fn parse_ascii_aiger_into_graph(
     pre_optimize: bool,
 ) -> Result<AigGraph, Error> {
     let mut graph = AigBuilder::new();
-    let mut literals = Literals::new();
+    let mut literals = Literals::new(header.max_var);
     let mut line_reader = LineReader::new(reader);
 
     for _ in 0..header.num_inputs {
