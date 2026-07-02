@@ -80,18 +80,6 @@ pub fn verify_aiger_header(reader: &mut impl BufRead) -> Result<AigerHeader, Err
     })
 }
 
-pub fn read_one_number_line(reader: &mut impl BufRead) -> Result<usize, Error> {
-    let mut line: String = String::new();
-
-    if (reader.read_line(&mut line)?) == 0 {
-        panic!("no data read from number line")
-    }
-
-    let trimmed: usize = line.trim().parse().unwrap();
-
-    Ok(trimmed)
-}
-
 /// A mapping from AIGER literal indices to our internal `NodeId`s.
 #[derive(Default)]
 struct Literals(HashMap<usize, NodeId>);

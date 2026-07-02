@@ -1,6 +1,6 @@
 use std::io::{BufRead, Error, Read};
 
-use crate::aiger::{AigerHeader, Literals, read_one_number_line};
+use crate::aiger::{AigerHeader, LineReader, Literals};
 use crate::graph::{AigBuilder, AigGraph, NodeId};
 
 pub fn parse_binary_aiger_into_graph(
@@ -17,23 +17,26 @@ pub fn parse_binary_aiger_into_graph(
         literals.add(input_lit, input_id);
     }
 
-    // like in ascii parser, save latches for later
-    let mut latch_inputs: Vec<(NodeId, usize)> = Vec::new();
+    // Parse the ASCII-formatted lines.
+    let mut latch_inputs: Vec<(NodeId, usize)> = Vec::with_capacity(header.num_inputs);
+    let mut output_lits: Vec<usize> = Vec::with_capacity(header.num_outputs);
+    {
+        let mut line_reader = LineReader::new(reader);
 
-    for latch_index in 0..header.num_latches {
-        let latch_input_lit: usize = read_one_number_line(reader)?;
-        let latch_lit: usize = 2 * (header.num_inputs + latch_index + 1);
-        let latch_id: NodeId = graph.add_latch(NodeId::FALSE);
+        // like in ascii parser, save latches for later
+        for latch_index in 0..header.num_latches {
+            let latch_input_lit = line_reader.read_int()?.expect("malformed latch literal");
+            let latch_lit: usize = 2 * (header.num_inputs + latch_index + 1);
+            let latch_id: NodeId = graph.add_latch(NodeId::FALSE);
 
-        literals.add(latch_lit, latch_id);
-        latch_inputs.push((latch_id, latch_input_lit));
-    }
-    // same idea for outputs
-    let mut output_lits: Vec<usize> = Vec::new();
-
-    for _ in 0..header.num_outputs {
-        let output_lit: usize = read_one_number_line(reader)?;
-        output_lits.push(output_lit);
+            literals.add(latch_lit, latch_id);
+            latch_inputs.push((latch_id, latch_input_lit));
+        }
+        // same idea for outputs
+        for _ in 0..header.num_outputs {
+            let output_lit = line_reader.read_int()?.expect("malformed output literal");
+            output_lits.push(output_lit);
+        }
     }
 
     for and_index in 0..header.num_and_gates {
