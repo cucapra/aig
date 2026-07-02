@@ -34,26 +34,19 @@ pub fn run_parser_with_options(
 }
 
 pub fn verify_aiger_header(reader: &mut impl BufRead) -> Result<AigerHeader, Error> {
-    let mut line: String = String::new();
-    reader.read_line(&mut line)?;
+    let mut parser = LineParser::default();
+    parser.read_line(reader)?;
 
-    let parts: Vec<&str> = line.split_whitespace().collect();
-
-    if parts.len() != 6 {
-        panic!("Header must have format: aag/aig M I L O A");
-    }
-
-    let is_ascii: bool = match parts[0] {
-        "aag" => true,
-        "aig" => false,
+    let tag = parser.parse_word();
+    let is_ascii = match tag {
+        b"aag" => true,
+        b"aig" => false,
         _ => panic!("Invalid tag, must be either 'aag' or 'aig'"),
     };
 
-    let max_var: usize = parts[1].parse().unwrap();
-    let num_inputs: usize = parts[2].parse().unwrap();
-    let num_latches: usize = parts[3].parse().unwrap();
-    let num_outputs: usize = parts[4].parse().unwrap();
-    let num_and_gates: usize = parts[5].parse().unwrap();
+    let [max_var, num_inputs, num_latches, num_outputs, num_and_gates] = parser
+        .parse_ints()
+        .expect("Header must have format: aag/aig M I L O A");
     let expected_max_var: usize = num_inputs + num_latches + num_and_gates;
 
     if max_var < expected_max_var {
@@ -209,6 +202,13 @@ impl LineParser {
             }
         });
         if failed { None } else { Some(arr) }
+    }
+
+    /// Consume a sequence of non-whitespace bytes.
+    pub fn parse_word(&mut self) -> &[u8] {
+        let start_pos = self.pos;
+        while self.pop_if(|b| !b.is_ascii_whitespace()).is_some() {}
+        &self.buf[start_pos..self.pos]
     }
 }
 
