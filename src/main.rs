@@ -13,7 +13,7 @@ fn main() -> io::Result<()> {
     if args.len() < 2 {
         return Err(Error::new(
             ErrorKind::InvalidInput,
-            "Usage: cargo run -- <input.aag|input.aig|-> [--pre-optimize] [--stdout]",
+            "Usage: aig <input.aag|input.aig|-> [--pre-optimize] [--stdout] [--parse-only]",
         ));
     }
 
@@ -34,13 +34,14 @@ fn main() -> io::Result<()> {
         run_parser_with_options(&mut reader, pre_optimize)?
     };
 
-    let dot: String = graph.to_dot();
-
-    if write_to_stdout {
-        print!("{}", dot);
-    } else {
-        fs::write("graph.dot", dot)?;
-        println!("Wrote graph.dot");
+    if !args.iter().any(|arg| arg == "--parse-only") {
+        let dot: String = graph.to_dot();
+        if write_to_stdout {
+            print!("{}", dot);
+        } else {
+            fs::write("graph.dot", dot)?;
+            println!("Wrote graph.dot");
+        }
     }
 
     Ok(())
