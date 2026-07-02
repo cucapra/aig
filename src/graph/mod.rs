@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::ops::Index;
 
+mod eval;
 mod graphviz;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
