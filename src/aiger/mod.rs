@@ -74,15 +74,15 @@ pub fn verify_aiger_header(reader: &mut impl BufRead) -> Result<AigerHeader, Err
 
 /// A mapping from AIGER literal indices to our internal `NodeId`s.
 #[derive(Default)]
-struct Literals(Vec<Option<NodeId>>);
+struct Literals(Vec<NodeId>);
 
 impl Literals {
     fn new(max_var: usize) -> Self {
         // We store one entry per *variable*: i.e., one entry in this mapping
         // covers both the regular and inverted literals corresponding to the
         // same node.
-        let mut map = vec![None; max_var + 1];
-        map[0] = Some(NodeId::FALSE);
+        let mut map = vec![NodeId::NONE; max_var + 1];
+        map[0] = NodeId::FALSE;
         Self(map)
     }
 
@@ -94,7 +94,7 @@ impl Literals {
     /// Record that a given AIGER literal corresponds to a given fresh `NodeID`.
     fn add(&mut self, literal: usize, id: NodeId) {
         let (var_idx, inverted) = Self::split(literal);
-        self.0[var_idx] = Some(if inverted { id.invert() } else { id });
+        self.0[var_idx] = if inverted { id.invert() } else { id };
     }
 
     /// Get the `NodeID` corresponding to a given AIGER literal.
@@ -103,14 +103,14 @@ impl Literals {
     fn get(&self, literal: usize) -> NodeId {
         let (var_idx, inverted) = Self::split(literal);
         match self.0[var_idx] {
-            Some(regular_node) => {
+            NodeId::NONE => panic!("Unknown aiger literal: {}", literal),
+            regular_node => {
                 if inverted {
                     regular_node.invert()
                 } else {
                     regular_node
                 }
             }
-            None => panic!("Unknown aiger literal: {}", literal),
         }
     }
 }

@@ -9,10 +9,6 @@ pub struct NodeId(u32);
 const INVERSION_MASK: u32 = 0b0000_0000_0000_0000_0000_0000_0000_0001;
 const NODE_ID_MASK: u32 = 0b1111_1111_1111_1111_1111_1111_1111_1110;
 
-/// Reserved marker used inside AigNode to represent "this node is an input/latch marker".
-/// This should never be a real graph node ID.
-const INPUT_NODE_MARKER: NodeId = NodeId(NODE_ID_MASK);
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct AigNode {
     left: NodeId,
@@ -37,6 +33,10 @@ impl NodeId {
     pub const FALSE: NodeId = NodeId(0);
     pub const TRUE: NodeId = NodeId(1);
 
+    /// Reserved marker used inside AigNode to represent "this node is an input/latch marker".
+    /// This should never be a real graph node ID.
+    pub const NONE: NodeId = NodeId(NODE_ID_MASK);
+
     /// inversion is specified by the LSB of a NodeId being `1`.
     pub fn is_inverted(self) -> bool {
         (self.0 & INVERSION_MASK) != 0
@@ -60,7 +60,7 @@ impl NodeId {
 
     /// Marker values are reserved for classifying input and latch nodes.
     pub fn is_marker(self) -> bool {
-        self.regular() == INPUT_NODE_MARKER
+        self.regular() == Self::NONE
     }
 
     /// Constant False = regular value of all zeros and a LSB of 0
@@ -205,14 +205,14 @@ impl AigNode {
 
     fn new_input() -> Self {
         Self {
-            left: INPUT_NODE_MARKER,
-            right: INPUT_NODE_MARKER,
+            left: NodeId::NONE,
+            right: NodeId::NONE,
         }
     }
 
     fn new_latch(latch_input: NodeId) -> Self {
         Self {
-            left: INPUT_NODE_MARKER,
+            left: NodeId::NONE,
             right: latch_input,
         }
     }
