@@ -75,16 +75,16 @@ pub fn parse_binary_aiger_into_graph(
 ///
 /// In binary AIGER, each AND gate is stored using two deltas values, where:
 ///
-/// 
+///
 /// delta0 = lhs  - rhs0
 /// delta1 = rhs0 - rhs1
-/// 
+///
 /// Given `lhs`, these deltas let us recover:
 ///
-/// 
+///
 /// rhs0 = lhs  - delta0
 /// rhs1 = rhs0 - delta1
-/// 
+///
 ///
 /// Each delta is encoded as a variable-length little-endian integer.
 /// In each byte, the most significant bit is a continuation bit:
@@ -97,9 +97,9 @@ pub fn parse_binary_aiger_into_graph(
 ///
 /// AIGER requires the ordering:
 ///
-/// 
+///
 /// lhs > rhs0 >= rhs1
-/// 
+///
 ///
 /// This guarantees that both deltas are nonnegative. In practice, the
 /// deltas are usually small, which makes the encoding nice and compact!

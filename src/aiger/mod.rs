@@ -94,24 +94,27 @@ pub fn read_one_number_line(reader: &mut impl BufRead) -> Result<usize, Error> {
 
 /// A mapping from AIGER literal indices to our internal `NodeId`s.
 #[derive(Default)]
-struct Literals(HashMap<usize, NodeId>);
+struct Literals(Vec<Option<NodeId>>);
 
 impl Literals {
     fn new() -> Self {
-        let mut map = HashMap::new();
-        map.insert(0, NodeId::FALSE);
-        map.insert(1, NodeId::TRUE);
+        let map = vec![Some(NodeId::FALSE), Some(NodeId::TRUE)];
         Self(map)
     }
 
     /// Record that a given AIGER literal corresponds to a given fresh `NodeID`.
     fn add(&mut self, literal: usize, id: NodeId) {
+        // TODO crude
+        if literal >= self.0.len() {
+            self.0.resize(literal + 1, None);
+        }
+
         if literal & 1 == 0 {
             // The literal is already positive.
-            self.0.insert(literal, id);
+            self.0[literal] = Some(id);
         } else {
             // The literal is negated; map the positive version instead.
-            self.0.insert(literal & !1, id.invert());
+            self.0[literal & !1] = Some(id.invert());
         }
     }
 
@@ -121,8 +124,8 @@ impl Literals {
     fn get(&self, literal: usize) -> NodeId {
         let regular_lit = literal & !1;
         let is_inverted = (literal & 1) == 1;
-        match self.0.get(&regular_lit) {
-            Some(&regular_node) => {
+        match self.0[regular_lit] {
+            Some(regular_node) => {
                 if is_inverted {
                     regular_node.invert()
                 } else {
