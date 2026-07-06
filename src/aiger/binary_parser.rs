@@ -8,6 +8,11 @@ pub fn parse_binary_aiger_into_graph(
     reader: &mut impl BufRead,
     pre_optimize: bool,
 ) -> Result<AigGraph, Error> {
+    assert_eq!(header.num_bad_states, 0, "bad states not supported");
+    assert_eq!(header.num_invariants, 0, "invariants not supported");
+    assert_eq!(header.num_justice, 0, "justice properties not supported");
+    assert_eq!(header.num_fairness, 0, "fairness constraints not supported");
+
     let mut graph = AigBuilder::new();
     let mut literals = Literals::new(header.max_var);
 
