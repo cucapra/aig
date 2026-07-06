@@ -38,6 +38,13 @@ pub fn run_parser_with_options(
     Ok(graph)
 }
 
+/// Parse an optional AIGER header field, which defaults to zero.
+fn parse_optional_field(parser: &mut LineParser) -> usize {
+    let val = parser.parse_int().unwrap_or(0);
+    parser.skip_whitespace();
+    val
+}
+
 pub fn verify_aiger_header(reader: &mut impl BufRead) -> Result<AigerHeader, Error> {
     let mut parser = LineParser::default();
     parser.read_line(reader)?;
@@ -57,14 +64,10 @@ pub fn verify_aiger_header(reader: &mut impl BufRead) -> Result<AigerHeader, Err
 
     // The extension header fields. The AIGER 1.9 spec says that all these
     // fields are optional; omitting them is equivalent to setting them to 0.
-    let num_bad_states = parser.parse_int().unwrap_or(0);
-    parser.skip_whitespace();
-    let num_invariants = parser.parse_int().unwrap_or(0);
-    parser.skip_whitespace();
-    let num_justice = parser.parse_int().unwrap_or(0);
-    parser.skip_whitespace();
-    let num_fairness = parser.parse_int().unwrap_or(0);
-    parser.skip_whitespace();
+    let num_bad_states = parse_optional_field(&mut parser);
+    let num_invariants = parse_optional_field(&mut parser);
+    let num_justice = parse_optional_field(&mut parser);
+    let num_fairness = parse_optional_field(&mut parser);
 
     assert!(parser.rest().is_empty(), "extra data on header line");
 
