@@ -46,6 +46,9 @@ pub fn verify_aiger_header(reader: &mut impl BufRead) -> Result<AigerHeader, Err
     let [max_var, num_inputs, num_latches, num_outputs, num_and_gates] = parser
         .parse_ints()
         .expect("Header must have format: aag/aig M I L O A");
+    parser.skip_whitespace();
+    assert!(parser.rest().is_empty(), "extra data on header line");
+
     let expected_max_var: usize = num_inputs + num_latches + num_and_gates;
 
     if max_var < expected_max_var {
