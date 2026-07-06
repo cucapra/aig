@@ -1,6 +1,6 @@
 use std::env;
 use std::fs::{self, File};
-use std::io::{self, BufReader, Error, ErrorKind};
+use std::io::{self, BufReader};
 
 pub mod aiger;
 pub mod graph;
@@ -11,10 +11,11 @@ fn main() -> io::Result<()> {
     let args: Vec<String> = env::args().collect();
 
     if args.len() < 2 {
-        return Err(Error::new(
-            ErrorKind::InvalidInput,
-            "Usage: cargo run -- <input.aag|input.aig|-> [--pre-optimize] [--stdout]",
-        ));
+        eprintln!(
+            "Usage: {} <input.aag|input.aig|-> [--pre-optimize] [--stdout] [--parse-only]",
+            args[0]
+        );
+        std::process::exit(1);
     }
 
     let input: &String = &args[1];
@@ -34,13 +35,14 @@ fn main() -> io::Result<()> {
         run_parser_with_options(&mut reader, pre_optimize)?
     };
 
-    let dot: String = graph.to_dot();
-
-    if write_to_stdout {
-        print!("{}", dot);
-    } else {
-        fs::write("graph.dot", dot)?;
-        println!("Wrote graph.dot");
+    if !args.iter().any(|arg| arg == "--parse-only") {
+        let dot: String = graph.to_dot();
+        if write_to_stdout {
+            print!("{}", dot);
+        } else {
+            fs::write("graph.dot", dot)?;
+            println!("Wrote graph.dot");
+        }
     }
 
     Ok(())

@@ -1,6 +1,6 @@
 use std::io::{BufRead, Error};
 
-use crate::aiger::{AigerHeader, Literals, read_one_number_line};
+use crate::aiger::{AigerHeader, LineReader, Literals};
 use crate::graph::{AigBuilder, AigGraph, NodeId};
 
 pub fn parse_ascii_aiger_into_graph(
@@ -9,22 +9,23 @@ pub fn parse_ascii_aiger_into_graph(
     pre_optimize: bool,
 ) -> Result<AigGraph, Error> {
     let mut graph = AigBuilder::new();
-    let mut literals = Literals::new();
+    let mut literals = Literals::new(header.max_var);
+    let mut line_reader = LineReader::new(reader);
 
     for _ in 0..header.num_inputs {
-        let input_lit: usize = read_one_number_line(reader)?;
+        let input_lit = line_reader.read_int()?.expect("malformed input line");
 
         let input_id: NodeId = graph.add_input();
         literals.add(input_lit, input_id);
     }
 
-    let mut latch_inputs: Vec<(NodeId, usize)> = Vec::new();
+    let mut latch_inputs: Vec<(NodeId, usize)> = Vec::with_capacity(header.num_latches);
 
     // note: we add Nodeid::FALSE because latches may
     // contain nodes that are not defined yet (ex. AND nodes),
     // so we put them in the graph but save them in a hashmap for later
     for _ in 0..header.num_latches {
-        let (latch_lit, latch_input_lit) = read_latch_line(reader)?;
+        let [latch_lit, latch_input_lit] = line_reader.read_ints()?.expect("malformed latch line");
 
         let latch_id = graph.add_latch(NodeId::FALSE);
         literals.add(latch_lit, latch_id);
@@ -32,15 +33,15 @@ pub fn parse_ascii_aiger_into_graph(
     }
 
     // same idea for outputs! save 'em for later
-    let mut output_lits: Vec<usize> = Vec::new();
+    let mut output_lits: Vec<usize> = Vec::with_capacity(header.num_outputs);
 
     for _ in 0..header.num_outputs {
-        let output_lit = read_one_number_line(reader)?;
+        let output_lit = line_reader.read_int()?.expect("malformed output line");
         output_lits.push(output_lit);
     }
 
     for _ in 0..header.num_and_gates {
-        let (lhs_lit, rhs0_lit, rhs1_lit) = read_and_line(reader)?;
+        let [lhs_lit, rhs0_lit, rhs1_lit] = line_reader.read_ints()?.expect("malformed and line");
 
         let left: NodeId = literals.get(rhs0_lit);
         let right: NodeId = literals.get(rhs1_lit);
@@ -67,39 +68,4 @@ pub fn parse_ascii_aiger_into_graph(
     }
 
     Ok(graph.build())
-}
-
-fn read_latch_line(reader: &mut impl BufRead) -> Result<(usize, usize), Error> {
-    let mut line: String = String::new();
-
-    if (reader.read_line(&mut line)?) == 0 {
-        panic!("no data read from number line")
-    }
-
-    let parts: Vec<&str> = line.split_whitespace().collect();
-
-    let latch: usize = parts[0].parse().unwrap();
-    let input: usize = parts[1].parse().unwrap();
-
-    Ok((latch, input))
-}
-
-fn read_and_line(reader: &mut impl BufRead) -> Result<(usize, usize, usize), Error> {
-    let mut line: String = String::new();
-
-    if (reader.read_line(&mut line)?) == 0 {
-        panic!("no data read from number line")
-    }
-
-    let parts: Vec<&str> = line.split_whitespace().collect();
-
-    if parts.len() != 3 {
-        panic!("and gate must have 3 parts")
-    }
-
-    let lhs: usize = parts[0].parse().unwrap();
-    let rhs0: usize = parts[1].parse().unwrap();
-    let rhs1: usize = parts[2].parse().unwrap();
-
-    Ok((lhs, rhs0, rhs1))
 }
