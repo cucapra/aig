@@ -42,6 +42,7 @@ impl AigGraph {
     /// { a: 1, b: 1 },   // time 2
     /// ]
     pub fn simulate(&self, input_vectors: &[Env]) -> Vec<Vec<Value>> {
+        // format: output_trace[time_step][output_index]
         let mut output_trace = Vec::new();
 
         // stores the value of every variable right now
