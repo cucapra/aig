@@ -65,7 +65,7 @@ impl AigGraph {
                 // maybe todo: have a helper function to generate an input_vectors
                 // that includes this invariant check, also maybe includes a simple way
                 // to build an input_vector with inputs that do not change over time
-                //i.e., every entry in input_vectors is the saem
+                //i.e., every entry in input_vectors is the same
                 assert!(value == 0 || value == 1);
 
                 current.insert(input_id, value);
@@ -84,7 +84,7 @@ impl AigGraph {
                 }
             }
 
-            // read output literlas before latch update.
+            // read output literals before latch update.
             let mut outputs = Vec::new();
 
             for &output_id in &self.outputs {
@@ -106,7 +106,7 @@ impl AigGraph {
             }
 
             // update all latches together (i.e., clock tick)
-            // could this be done with thread?s???
+            // could this be done with threads???
             for &latch_id in &self.latches {
                 let next_value = *next.get(&latch_id).unwrap();
                 current.insert(latch_id, next_value);
