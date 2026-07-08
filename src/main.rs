@@ -1,49 +1,151 @@
-use std::env;
 use std::fs::{self, File};
 use std::io::{self, BufReader};
+use std::path::PathBuf;
+
+use clap::{Parser, Subcommand};
 
 pub mod aiger;
 pub mod graph;
 
 use aiger::run_parser_with_options;
 
+#[derive(Parser, Debug)]
+#[command(version, about = "AIGER command-line tool")]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand, Debug)]
+enum Commands {
+    /// parse an AIGER file, but do not write any .dot output
+    Parse {
+        /// input .aag/.aig file, or '-' to read from stdin
+        input: String,
+
+        /// optimize while constructing the graph
+        #[arg(long)]
+        pre_optimize: bool,
+
+        /// print AIG graph to stdout
+        #[arg(long)]
+        stdout: bool,
+    },
+
+    /// convert an ASCII AIGER file to binary AIGER, or binary AIGER to ASCII
+    Convert {
+        /// input .aag/.aig file, or '-' to read from stdin
+        input: String,
+
+        /// print converted AIGER file to stdout
+        #[arg(long)]
+        stdout: bool,
+
+        /// output .aag/.aig name and location file
+        /// examples:
+        ///   --output aiger.aag
+        ///   --output ./aiger.aag
+        ///   --output /Users/Modi/Projects/AIG/aiger.aag
+        #[arg(short, long, value_parser = parse_aiger_output_path)]
+        output: Option<PathBuf>,
+    },
+
+    /// parse an AIGER file and produce Graphviz DOT output
+    Dot {
+        /// input .aag/.aig file, or '-' to read from stdin
+        input: String,
+
+        /// optimize while constructing the graph
+        #[arg(long)]
+        pre_optimize: bool,
+
+        /// print .dot output to stdout
+        #[arg(long)]
+        stdout: bool,
+
+        // output .dot name and location file
+        /// examples:
+        ///   --output graph.dot
+        ///   --output ./graph.dot
+        ///   --output /Users/Modi/Projects/AIG/graph.dot
+        #[arg(short, long, value_parser = parse_dot_path)]
+        output: Option<PathBuf>,
+    },
+}
+
 fn main() -> io::Result<()> {
-    let args: Vec<String> = env::args().collect();
+    let cli = Cli::parse();
 
-    if args.len() < 2 {
-        eprintln!(
-            "Usage: {} <input.aag|input.aig|-> [--pre-optimize] [--stdout] [--parse-only]",
-            args[0]
-        );
-        std::process::exit(1);
-    }
+    match cli.command {
+        Commands::Parse {
+            input,
+            pre_optimize,
+            stdout,
+        } => {
+            let graph = parse_input(&input, pre_optimize)?;
 
-    let input: &String = &args[1];
+            if stdout {
+                println!("{graph:#?}");
+            }
+        }
 
-    let pre_optimize: bool = args.iter().any(|arg| arg == "--pre-optimize");
-    let write_to_stdout: bool = args.iter().any(|arg| arg == "--stdout");
+        Commands::Convert {
+            input: _,
+            stdout: _,
+            output: _,
+        } => {
+            todo!("implement conversion logic");
+        }
 
-    let graph: graph::AigGraph = if input == "-" {
-        let stdin: io::Stdin = io::stdin();
-        let mut reader: BufReader<io::StdinLock<'_>> = BufReader::new(stdin.lock());
+        Commands::Dot {
+            input,
+            pre_optimize,
+            stdout,
+            output,
+        } => {
+            let graph = parse_input(&input, pre_optimize)?;
+            let dot: String = graph.to_dot();
 
-        run_parser_with_options(&mut reader, pre_optimize)?
-    } else {
-        let file: File = File::open(input)?;
-        let mut reader: BufReader<File> = BufReader::new(file);
+            if stdout {
+                print!("{}", dot);
+            }
 
-        run_parser_with_options(&mut reader, pre_optimize)?
-    };
-
-    if !args.iter().any(|arg| arg == "--parse-only") {
-        let dot: String = graph.to_dot();
-        if write_to_stdout {
-            print!("{}", dot);
-        } else {
-            fs::write("graph.dot", dot)?;
-            println!("Wrote graph.dot");
+            if let Some(output) = output {
+                fs::write(&output, &dot)?;
+                println!("Wrote dot file to {}", output.display());
+            }
         }
     }
 
     Ok(())
+}
+
+fn parse_input(input: &str, pre_optimize: bool) -> io::Result<graph::AigGraph> {
+    if input == "-" {
+        let stdin: io::Stdin = io::stdin();
+        let mut reader: BufReader<io::StdinLock<'_>> = BufReader::new(stdin.lock());
+
+        run_parser_with_options(&mut reader, pre_optimize)
+    } else {
+        let file: File = File::open(input)?;
+        let mut reader: BufReader<File> = BufReader::new(file);
+
+        run_parser_with_options(&mut reader, pre_optimize)
+    }
+}
+
+fn parse_dot_path(s: &str) -> Result<PathBuf, String> {
+    if s.ends_with(".dot") {
+        Ok(PathBuf::from(s))
+    } else {
+        Err(format!("output file must end with .dot: {s}"))
+    }
+}
+
+fn parse_aiger_output_path(s: &str) -> Result<PathBuf, String> {
+    if s.ends_with(".aag") || s.ends_with(".aig") {
+        Ok(PathBuf::from(s))
+    } else {
+        Err(format!("output file must end with .aag or .aig: {s}"))
+    }
 }
