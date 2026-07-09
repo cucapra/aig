@@ -4,23 +4,21 @@ type Value = usize;
 type Env = HashMap<NodeId, Value>;
 
 impl AigGraph {
-    pub fn eval(&self, id: NodeId, input_values: &Env) -> Value {
+    pub fn eval(&self, id: NodeId, values: &Env) -> Value {
         if id.is_false() {
             0
         } else if id.is_true() {
             1
         } else if id.is_inverted() {
-            1 - self.eval(id.regular(), input_values)
+            1 - self.eval(id.regular(), values)
         } else {
             let node = &self[id];
 
-            if node.is_latch() {
-                panic!("cannot evaluate latch {:?} in combinational evaluator", id)
-            } else if node.is_input() {
-                *input_values.get(&id).unwrap()
+            if node.is_input() || node.is_latch() {
+                *values.get(&id).unwrap()
             } else if node.is_and() {
-                let left = self.eval(node.left(), input_values);
-                let right = self.eval(node.right(), input_values);
+                let left = self.eval(node.left(), values);
+                let right = self.eval(node.right(), values);
                 left & right
             } else {
                 panic!("invalid AIG node classification for {:?}", id)
@@ -69,24 +67,11 @@ impl AigGraph {
                 current.insert(input_id, value);
             }
 
-            // simulates all AND nodes (assumes the nodes are in dependency order:
-            // children come before parents, which is upheld by our parser)
-            for (index, node) in self.nodes.iter().enumerate() {
-                let id = NodeId::from(index);
-
-                if node.is_and() {
-                    let left = deref(node.left(), &current);
-                    let right = deref(node.right(), &current);
-
-                    current.insert(id, left & right);
-                }
-            }
-
             // read output literals before latch update.
             let outputs: Vec<_> = self
                 .outputs
                 .iter()
-                .map(|&output_id| deref(output_id, &current))
+                .map(|&output_id| self.eval(output_id, &current))
                 .collect();
 
             output_trace.push(outputs);
@@ -98,7 +83,7 @@ impl AigGraph {
                 let latch_node = &self[latch_id];
 
                 let latch_input = latch_node.right();
-                let next_value = deref(latch_input, &current);
+                let next_value = self.eval(latch_input, &current);
 
                 next.insert(latch_id, next_value);
             }
@@ -115,20 +100,3 @@ impl AigGraph {
     }
 }
 
-/// Read the current value of a literal based on the current environment.
-/// panics if the NodeId is not present in the Env.
-fn deref(id: NodeId, current: &Env) -> Value {
-    if id.is_false() {
-        0
-    } else if id.is_true() {
-        1
-    } else {
-        let regular = id.regular();
-
-        let value = *current.get(&regular).unwrap();
-
-        assert!(value == 0 || value == 1);
-
-        if id.is_inverted() { 1 - value } else { value }
-    }
-}
