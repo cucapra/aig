@@ -46,10 +46,7 @@ impl AigGraph {
         let mut output_trace = Vec::new();
 
         // stores the value of every variable right now
-        let mut current: HashMap<NodeId, usize> = Env::new();
-
-        // initialize constants false and true, only storing false in the hm
-        current.insert(NodeId::FALSE, 0);
+        let mut current = Env::new();
 
         // every latch is initialized as 0 (TODO: when adding
         // supporting for reset values, this will need to change from 0
@@ -86,11 +83,11 @@ impl AigGraph {
             }
 
             // read output literals before latch update.
-            let mut outputs = Vec::new();
-
-            for &output_id in &self.outputs {
-                outputs.push(deref(output_id, &current));
-            }
+            let outputs: Vec<_> = self
+                .outputs
+                .iter()
+                .map(|&output_id| deref(output_id, &current))
+                .collect();
 
             output_trace.push(outputs);
 
@@ -118,7 +115,8 @@ impl AigGraph {
     }
 }
 
-// Read the current value of a literal based on the current environment.
+/// Read the current value of a literal based on the current environment.
+/// panics if the NodeId is not present in the Env.
 fn deref(id: NodeId, current: &Env) -> Value {
     if id.is_false() {
         0
