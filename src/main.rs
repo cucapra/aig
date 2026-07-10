@@ -27,19 +27,15 @@ enum Commands {
         #[arg(long)]
         pre_optimize: bool,
 
-        /// print AIG graph to stdout
+        /// print AIG graph
         #[arg(long)]
-        stdout: bool,
+        print: bool,
     },
 
     /// convert an ASCII AIGER file to binary AIGER, or binary AIGER to ASCII
     Convert {
         /// input .aag/.aig file, or '-' to read from stdin
         input: String,
-
-        /// print converted AIGER file to stdout
-        #[arg(long)]
-        stdout: bool,
 
         /// output .aag/.aig name and location file
         /// examples:
@@ -59,10 +55,6 @@ enum Commands {
         #[arg(long)]
         pre_optimize: bool,
 
-        /// print .dot output to stdout
-        #[arg(long)]
-        stdout: bool,
-
         // output .dot name and location file
         /// examples:
         ///   --output graph.dot
@@ -80,39 +72,32 @@ fn main() -> io::Result<()> {
         Commands::Parse {
             input,
             pre_optimize,
-            stdout,
+            print,
         } => {
             let graph = parse_input(&input, pre_optimize)?;
 
-            if stdout {
+            if print {
                 println!("{graph:#?}");
             }
         }
 
-        Commands::Convert {
-            input: _,
-            stdout: _,
-            output: _,
-        } => {
-            todo!("implement conversion logic");
+        Commands::Convert { input, output } => {
+            todo!("implement conversion logic for {input} with output {output:?}");
         }
 
         Commands::Dot {
             input,
             pre_optimize,
-            stdout,
             output,
         } => {
             let graph = parse_input(&input, pre_optimize)?;
             let dot: String = graph.to_dot();
 
-            if stdout {
-                print!("{}", dot);
-            }
-
             if let Some(output) = output {
                 fs::write(&output, &dot)?;
                 println!("Wrote dot file to {}", output.display());
+            } else {
+                print!("{}", dot);
             }
         }
     }
