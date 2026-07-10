@@ -55,6 +55,7 @@ impl AigGraph {
 
         // Each iteration is one time step / one clock cycle.
         for input_values in input_vectors {
+
             // write this time step's inputs into current
             for &input_id in &self.inputs {
                 let value = *input_values.get(&input_id).unwrap();
