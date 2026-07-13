@@ -15,6 +15,12 @@ pub struct AigerHeader {
     pub num_latches: usize,
     pub num_outputs: usize,
     pub num_and_gates: usize,
+
+    // From the AIGER 1.9 extension.
+    pub num_bad_states: usize,
+    pub num_invariants: usize,
+    pub num_justice: usize,
+    pub num_fairness: usize,
 }
 
 pub fn run_parser_with_options(
@@ -32,6 +38,13 @@ pub fn run_parser_with_options(
     Ok(graph)
 }
 
+/// Parse an optional AIGER header field, which defaults to zero.
+fn parse_optional_field(parser: &mut LineParser) -> usize {
+    let val = parser.parse_int().unwrap_or(0);
+    parser.skip_whitespace();
+    val
+}
+
 pub fn verify_aiger_header(reader: &mut impl BufRead) -> Result<AigerHeader, Error> {
     let mut parser = LineParser::default();
     parser.read_line(reader)?;
@@ -43,9 +56,21 @@ pub fn verify_aiger_header(reader: &mut impl BufRead) -> Result<AigerHeader, Err
         _ => panic!("Invalid tag, must be either 'aag' or 'aig'"),
     };
 
+    // The basic header fields.
     let [max_var, num_inputs, num_latches, num_outputs, num_and_gates] = parser
         .parse_ints()
-        .expect("Header must have format: aag/aig M I L O A");
+        .expect("Header must have format: aag/aig M I L O A [B C J F]");
+    parser.skip_whitespace();
+
+    // The extension header fields. The AIGER 1.9 spec says that all these
+    // fields are optional; omitting them is equivalent to setting them to 0.
+    let num_bad_states = parse_optional_field(&mut parser);
+    let num_invariants = parse_optional_field(&mut parser);
+    let num_justice = parse_optional_field(&mut parser);
+    let num_fairness = parse_optional_field(&mut parser);
+
+    assert!(parser.rest().is_empty(), "extra data on header line");
+
     let expected_max_var: usize = num_inputs + num_latches + num_and_gates;
 
     if max_var < expected_max_var {
@@ -69,6 +94,10 @@ pub fn verify_aiger_header(reader: &mut impl BufRead) -> Result<AigerHeader, Err
         num_latches,
         num_outputs,
         num_and_gates,
+        num_bad_states,
+        num_invariants,
+        num_justice,
+        num_fairness,
     })
 }
 
