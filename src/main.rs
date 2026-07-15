@@ -1,12 +1,10 @@
+use clap::{Parser, Subcommand};
 use std::fs::{self, File};
 use std::io::{self, BufReader};
 use std::path::PathBuf;
 
-use clap::{Parser, Subcommand};
-
 pub mod aiger;
 pub mod graph;
-
 use aiger::run_parser_with_options;
 
 #[derive(Parser, Debug)]
@@ -38,11 +36,15 @@ enum Commands {
         input: String,
 
         /// Stimulus file containing one 0/1 input vector per line
-        stimulus: String,
+        stimulus: PathBuf,
 
         /// Optimize while constructing the graph
         #[arg(long)]
         pre_optimize: bool,
+
+        /// Print a labeled, human-readable trace
+        #[arg(long)]
+        pretty: bool,
     },
 
     /// Convert an ASCII AIGER file to binary AIGER, or binary AIGER to ASCII
@@ -98,30 +100,24 @@ fn main() -> io::Result<()> {
             input,
             stimulus,
             pre_optimize,
+            pretty,
         } => {
             let graph = parse_input(&input, pre_optimize)?;
 
             let stimulus_file = File::open(&stimulus)?;
             let stimulus_reader = BufReader::new(stimulus_file);
 
-            let output_trace = graph.simulate(stimulus_reader);
+            let trace = graph.simulate(stimulus_reader);
 
-            // Print one output vector per clock cycle.
-            for outputs in output_trace {
-                for value in outputs {
-                    if value == 0 {
-                        print!("0");
-                    } else {
-                        print!("1");
-                    }
-                }
-
-                println!();
+            if pretty {
+                print_pretty_trace(&trace);
+            } else {
+                print_aiger_trace(&trace);
             }
         }
 
         Commands::Convert { input, output } => {
-            todo!("implement conversion logic for {input} with output {output:?}");
+            todo!("implement conversion logic");
         }
 
         Commands::Dot {
@@ -174,3 +170,50 @@ fn parse_aiger_output_path(s: &str) -> Result<PathBuf, String> {
     }
 }
 
+/// Convert simulation values into a string such as "0101".
+fn values_to_bits(values: &[graph::Value]) -> String {
+    values
+        .iter()
+        .map(|&value| if value == 0 { '0' } else { '1' })
+        .collect()
+}
+
+/// Print the transition format used by the C AIGER simulator:
+///
+/// current-state inputs outputs next-state
+fn print_aiger_trace(trace: &[graph::SimulationStep]) {
+    for step in trace {
+        println!(
+            "{} {} {} {}",
+            values_to_bits(&step.state),
+            values_to_bits(&step.inputs),
+            values_to_bits(&step.outputs),
+            values_to_bits(&step.next_state),
+        );
+    }
+}
+
+/// Print a labeled, human-readable simulation trace.
+fn print_pretty_trace(trace: &[graph::SimulationStep]) {
+    for (time_step, step) in trace.iter().enumerate() {
+        println!("Time step {time_step}:");
+        println!("     Current state: {}", pretty_values(&step.state));
+        println!("     Inputs: {}", pretty_values(&step.inputs));
+        println!("     Outputs: {}", pretty_values(&step.outputs));
+        println!("     Next state: {}", pretty_values(&step.next_state));
+
+        if time_step + 1 < trace.len() {
+            println!();
+        }
+    }
+}
+
+/// Display "-" when a circuit has no values in a category, such as a
+/// combinational circuit with no latches.
+fn pretty_values(values: &[graph::Value]) -> String {
+    if values.is_empty() {
+        "-".to_string()
+    } else {
+        values_to_bits(values)
+    }
+}

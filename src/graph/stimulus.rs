@@ -81,10 +81,7 @@ impl<R: Read> Stimulus for BufReader<R> {
                 b'1' => Value::MAX,
 
                 b'x' => {
-                    panic!(
-                        "column {}: 'x' is not currently supported",
-                        column + 1
-                    );
+                    panic!("column {}: 'x' is not currently supported", column + 1);
                 }
 
                 other => {

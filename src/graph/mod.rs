@@ -5,6 +5,8 @@ mod eval;
 mod graphviz;
 mod stimulus;
 
+pub use eval::{SimulationStep, Value};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct NodeId(u32);
 
