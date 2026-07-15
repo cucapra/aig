@@ -42,13 +42,14 @@ impl AigGraph {
 
                 let left = self.eval(node.left(), values);
                 let right = self.eval(node.right(), values);
-
                 left & right
             }
         }
     }
 
     /// Simulate the circuit for several clock cycles.
+    /// 
+    /// TODO: maybe expand upon this doc some more (i.e. explain Stimulus type a bit)
     ///
     /// The stimulus supplies one input vector per clock cycle. Values in each
     /// vector are ordered to match the graph's inputs.
@@ -63,48 +64,38 @@ impl AigGraph {
         let mut current = Env::with_capacity(self.latches.len() + self.inputs.len());
 
         // `next` stores the next value of every latch. It is reused across
-        // clock cycles to avoid allocating a new HashMap each time.
+        // clock cycles to avoid allocating a new HashMap each time. Yippy!
         let mut next = Env::with_capacity(self.latches.len());
 
-        // Every latch is initially false.
-        //
         // TODO: Use each latch's reset value when reset values are supported.
         for &latch_id in &self.latches {
             current.insert(latch_id, 0);
         }
 
-        // Each iteration is one clock cycle.
+        // Each iteration is one time step / one clock cycle
         while let Some(input_vector) = inputs.next_vector() {
             let input_values = input_vector.as_ref();
 
-            assert_eq!(
-                input_values.len(),
-                self.inputs.len(),
-                "stimulus supplied {} inputs, but the circuit expects {}",
-                input_values.len(),
-                self.inputs.len()
-            );
-
-            // Record the latch state at the beginning of this cycle.
+            // Record the latch state at the beginning of this cycle
             let mut state = Vec::with_capacity(self.latches.len());
 
             for &latch_id in &self.latches {
                 state.push(self.eval(latch_id, &current));
             }
 
-            // Write this clock cycle's inputs into the current environment.
+            // Write this clock cycle's inputs into the current environment
             for (&input_id, &value) in self.inputs.iter().zip(input_values.iter()) {
                 current.insert(input_id, value);
             }
 
-            // Evaluate outputs before updating the latches.
+            // Evaluate outputs before updating the latches
             let mut outputs = Vec::with_capacity(self.outputs.len());
 
             for &output_id in &self.outputs {
                 outputs.push(self.eval(output_id, &current));
             }
 
-            // Compute all next latch values without updating any latch yet.
+            // Compute all next latch values without updating any latch yet
             next.clear();
 
             let mut next_state = Vec::with_capacity(self.latches.len());

@@ -39,12 +39,10 @@ impl<'a> Stimulus for &'a [Vec<Value>] {
 ///
 /// Expected format:
 ///
-/// ```text
 /// 010
 /// 111
 /// 000
 /// .
-/// ```
 ///
 /// Each line is one clock cycle, and `.` ends the stimulus.
 impl<R: Read> Stimulus for BufReader<R> {

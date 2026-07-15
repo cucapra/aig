@@ -132,7 +132,7 @@ fn main() -> io::Result<()> {
                 fs::write(&output, &dot)?;
                 println!("Wrote dot file to {}", output.display());
             } else {
-                print!("{dot}");
+                print!("{}", dot);
             }
         }
     }
