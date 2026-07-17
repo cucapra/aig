@@ -18,26 +18,39 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// parse an AIGER file, but do not write any .dot output
+    /// Parse an AIGER file, but do not write any .dot output
     Parse {
-        /// input .aag/.aig file, or '-' to read from stdin
+        /// Input .aag/.aig file, or '-' to read from stdin
         input: String,
 
-        /// optimize while constructing the graph
+        /// Optimize while constructing the graph
         #[arg(long)]
         pre_optimize: bool,
 
-        /// print AIG graph
+        /// Print AIG graph
         #[arg(long)]
         print: bool,
     },
 
-    /// convert an ASCII AIGER file to binary AIGER, or binary AIGER to ASCII
-    Convert {
-        /// input .aag/.aig file, or '-' to read from stdin
+    /// Simulate an AIGER circuit using a stimulus file
+    Simulate {
+        /// Input .aag/.aig file
         input: String,
 
-        /// output .aag/.aig name and location file
+        /// Stimulus file containing one 0/1 input vector per line
+        stimulus: String,
+
+        /// Optimize while constructing the graph
+        #[arg(long)]
+        pre_optimize: bool,
+    },
+
+    /// Convert an ASCII AIGER file to binary AIGER, or binary AIGER to ASCII
+    Convert {
+        /// Input .aag/.aig file, or '-' to read from stdin
+        input: String,
+
+        /// Output .aag/.aig name and location file
         /// examples:
         ///   --output aiger.aag
         ///   --output ./aiger.aag
@@ -46,16 +59,16 @@ enum Commands {
         output: Option<PathBuf>,
     },
 
-    /// parse an AIGER file and produce Graphviz DOT output
+    /// Parse an AIGER file and produce Graphviz DOT output
     Dot {
-        /// input .aag/.aig file, or '-' to read from stdin
+        /// Input .aag/.aig file, or '-' to read from stdin
         input: String,
 
-        /// optimize while constructing the graph
+        /// Optimize while constructing the graph
         #[arg(long)]
         pre_optimize: bool,
 
-        // output .dot name and location file
+        /// Output .dot name and location file
         /// examples:
         ///   --output graph.dot
         ///   --output ./graph.dot
@@ -81,6 +94,33 @@ fn main() -> io::Result<()> {
             }
         }
 
+        Commands::Simulate {
+            input,
+            stimulus,
+            pre_optimize,
+        } => {
+            let graph = parse_input(&input, pre_optimize)?;
+
+            let stimulus_file = File::open(&stimulus)?;
+            let stimulus_reader = BufReader::new(stimulus_file);
+            let stimulus_parser = graph::StimulusParser::new(stimulus_reader);
+
+            let output_trace = graph.simulate(stimulus_parser);
+
+            // Print one output vector per clock cycle.
+            for outputs in output_trace {
+                for value in outputs {
+                    if value == 0 {
+                        print!("0");
+                    } else {
+                        print!("1");
+                    }
+                }
+
+                println!();
+            }
+        }
+
         Commands::Convert { input, output } => {
             todo!("implement conversion logic for {input} with output {output:?}");
         }
@@ -97,7 +137,7 @@ fn main() -> io::Result<()> {
                 fs::write(&output, &dot)?;
                 println!("Wrote dot file to {}", output.display());
             } else {
-                print!("{}", dot);
+                print!("{dot}");
             }
         }
     }
@@ -107,13 +147,13 @@ fn main() -> io::Result<()> {
 
 fn parse_input(input: &str, pre_optimize: bool) -> io::Result<graph::AigGraph> {
     if input == "-" {
-        let stdin: io::Stdin = io::stdin();
-        let mut reader: BufReader<io::StdinLock<'_>> = BufReader::new(stdin.lock());
+        let stdin = io::stdin();
+        let mut reader = BufReader::new(stdin.lock());
 
         run_parser_with_options(&mut reader, pre_optimize)
     } else {
-        let file: File = File::open(input)?;
-        let mut reader: BufReader<File> = BufReader::new(file);
+        let file = File::open(input)?;
+        let mut reader = BufReader::new(file);
 
         run_parser_with_options(&mut reader, pre_optimize)
     }

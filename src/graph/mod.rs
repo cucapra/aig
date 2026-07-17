@@ -3,6 +3,9 @@ use std::ops::Index;
 
 mod eval;
 mod graphviz;
+mod stimulus;
+
+pub use stimulus::{Stimulus, StimulusParser};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct NodeId(u32);

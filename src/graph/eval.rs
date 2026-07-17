@@ -1,6 +1,7 @@
+use super::stimulus::Stimulus;
 use super::{AigGraph, HashMap, NodeId};
 
-type Value = usize;
+pub type Value = usize;
 type Env = HashMap<NodeId, Value>;
 
 impl AigGraph {
@@ -43,28 +44,29 @@ impl AigGraph {
     /// vec![0, 0],   // time 1
     /// vec![1, 1],   // time 2
     /// ]
-    pub fn simulate(&self, input_vectors: &[Vec<Value>]) -> Vec<Vec<Value>> {
-        // format: output_trace[time_step][output_index]
+    pub fn simulate(&self, mut inputs: impl Stimulus) -> Vec<Vec<Value>> {
         let mut output_trace = Vec::new();
 
         // stores the value of every variable right now
         let mut current = Env::new();
 
-        // every latch is initialized as 0 (TODO: when adding
-        // supporting for reset values, this will need to change from 0
-        // to whatever the reset value is)
+        // every latch is initialized as 0
+        // TODO: when we want to support resets, this will be the reset
+        // value instead of 0
         for &latch_id in &self.latches {
             current.insert(latch_id, 0);
         }
 
         // Each iteration is one time step / one clock cycle.
-        for input_values in input_vectors {
-            // write this time step's inputs into current
+        while let Some(input_vector) = inputs.next_vector() {
+            let input_values = input_vector.as_ref();
+
+            // Write this time step's inputs into current.
             for (&input_id, &value) in self.inputs.iter().zip(input_values.iter()) {
                 current.insert(input_id, value);
             }
 
-            // read output literals before latch update.
+            // Read output literals before latch update.
             let outputs: Vec<_> = self
                 .outputs
                 .iter()
@@ -73,19 +75,18 @@ impl AigGraph {
 
             output_trace.push(outputs);
 
-            // compute next latch values using current without updating yet
+            // Compute next latch values without updating the current latches yet.
             let mut next = Env::new();
 
             for &latch_id in &self.latches {
                 let latch_node = &self[latch_id];
-
                 let latch_input = latch_node.right();
                 let next_value = self.eval(latch_input, &current);
 
                 next.insert(latch_id, next_value);
             }
 
-            // update all latches together (i.e., clock tick)
+            // Update all latches together.
             current = next;
         }
 
@@ -206,7 +207,7 @@ mod tests {
         make_counter(&mut g, bits);
         let g = g.build();
         let inputs = vec![vec![]; cycles];
-        let result = g.simulate(&inputs);
+        let result = g.simulate(inputs.as_slice());
         assert_eq!(result.len(), cycles);
         for (step, values) in result.iter().enumerate() {
             let count = read_bit_vector(values, 0, bits);
