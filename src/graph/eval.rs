@@ -50,8 +50,9 @@ impl AigGraph {
     /// Simulate the circuit for several clock cycles.
     /// 
     /// TODO: maybe expand upon this doc some more (i.e. explain Stimulus type a bit)
-    pub fn simulate(&self, mut inputs: impl Stimulus) -> Vec<Vec<Value>> {
-        let mut output_trace = Vec::new();
+    pub fn simulate(&self, mut inputs: impl Stimulus) -> Vec<SimulationStep> {
+        let mut trace = Vec::new();
+        let mut current = Env::with_capacity(self.latches.len() + self.inputs.len());
 
         // `next` stores the next value of every latch. It is reused across
         // clock cycles to avoid allocating a new HashMap each time. Yippy!
