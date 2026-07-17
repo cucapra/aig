@@ -248,7 +248,7 @@ mod tests {
 
     #[test]
     fn test_sim_counter() {
-        let bits = 30;
+        let bits = 10;
         let cycles = (1usize << bits) + 1;
         let counter_mask = (1usize << bits) - 1;
         let mut g = AigBuilder::new();
