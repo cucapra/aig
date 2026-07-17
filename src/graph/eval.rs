@@ -232,7 +232,7 @@ mod tests {
         let result = g.simulate(inputs.as_slice());
         assert_eq!(result.len(), cycles);
         for (step, values) in result.iter().enumerate() {
-            let count = read_bit_vector(values, 0, bits);
+            let count = read_bit_vector(&values.outputs, 0, bits);
             assert_eq!(count, (step & counter_mask) as u64);
             // println!("step: {}, count: {}", step, count);
         }
