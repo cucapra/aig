@@ -207,6 +207,7 @@ mod tests {
         let g = g.build();
         let inputs = vec![vec![]; cycles];
         let result = g.simulate(&inputs);
+        assert_eq!(result.len(), cycles);
         for (step, values) in result.iter().enumerate() {
             let count = read_bit_vector(values, 0, bits);
             assert_eq!(count, (step & counter_mask) as u64);
