@@ -4,6 +4,22 @@ use super::{AigGraph, HashMap, NodeId};
 pub type Value = usize;
 type Env = HashMap<NodeId, Value>;
 
+/// The complete simulation information for one clock cycle.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SimulationStep {
+    /// Latch values at the beginning of this clock cycle.
+    pub state: Vec<Value>,
+
+    /// Input values supplied during this clock cycle.
+    pub inputs: Vec<Value>,
+
+    /// Output values produced during this clock cycle.
+    pub outputs: Vec<Value>,
+
+    /// Latch values after the clock tick.
+    pub next_state: Vec<Value>,
+}
+
 impl AigGraph {
     pub fn eval(&self, id: NodeId, values: &Env) -> Value {
         if id.is_false() {
@@ -20,7 +36,8 @@ impl AigGraph {
             } else {
                 assert!(
                     node.is_and(),
-                    "The node is not an AND, so it cannot be calculated and a value needs to be provided"
+                    "The node is not an AND, so it cannot be calculated \
+                     and a value needs to be provided"
                 );
 
                 let left = self.eval(node.left(), values);
@@ -30,67 +47,72 @@ impl AigGraph {
         }
     }
 
-    /// Simulate the whole circuit for several time steps.
-    ///
-    /// Each Vec<Value> in `input_vectors` is one time step's input assignment.
-    /// Values are ordered to match the graph's inputs.
-    ///
-    /// Returns one Vec<Value> per time step, containing the output values
-    /// for that time step.
-    ///
-    /// example input_vectors:
-    /// [
-    /// vec![1, 0],   // time 0
-    /// vec![0, 0],   // time 1
-    /// vec![1, 1],   // time 2
-    /// ]
-    pub fn simulate(&self, mut inputs: impl Stimulus) -> Vec<Vec<Value>> {
-        let mut output_trace = Vec::new();
+    /// Simulate the circuit for several clock cycles.
+    /// 
+    /// TODO: maybe expand upon this doc some more (i.e. explain Stimulus type a bit)
+    pub fn simulate(&self, mut inputs: impl Stimulus) -> Vec<SimulationStep> {
+        let mut trace = Vec::new();
+        let mut current = Env::with_capacity(self.latches.len() + self.inputs.len());
 
-        // stores the value of every variable right now
-        let mut current = Env::new();
+        // `next` stores the next value of every latch. It is reused across
+        // clock cycles to avoid allocating a new HashMap each time. Yippy!
+        let mut next = Env::with_capacity(self.latches.len());
 
-        // every latch is initialized as 0
-        // TODO: when we want to support resets, this will be the reset
-        // value instead of 0
+        // TODO: Use each latch's reset value when reset values are supported.
         for &latch_id in &self.latches {
             current.insert(latch_id, 0);
         }
 
-        // Each iteration is one time step / one clock cycle.
+        // Each iteration is one time step / one clock cycle
         while let Some(input_vector) = inputs.next_vector() {
             let input_values = input_vector.as_ref();
 
-            // Write this time step's inputs into current.
+            // Record the latch state at the beginning of this cycle
+            let state: Vec<_> = self
+                        .latches
+                        .iter()
+                        .map(|&latch_id| self.eval(latch_id, &current))
+                        .collect();
+
+            // Write this clock cycle's inputs into the current environment
             for (&input_id, &value) in self.inputs.iter().zip(input_values.iter()) {
                 current.insert(input_id, value);
             }
 
-            // Read output literals before latch update.
+            // Evaluate outputs before updating the latches
             let outputs: Vec<_> = self
                 .outputs
                 .iter()
                 .map(|&output_id| self.eval(output_id, &current))
                 .collect();
 
-            output_trace.push(outputs);
+            // Compute all next latch values without updating any latch yet
+            next.clear();
 
-            // Compute next latch values without updating the current latches yet.
-            let mut next = Env::new();
+            let mut next_state = Vec::with_capacity(self.latches.len());
 
             for &latch_id in &self.latches {
                 let latch_node = &self[latch_id];
                 let latch_input = latch_node.right();
                 let next_value = self.eval(latch_input, &current);
 
+                next_state.push(next_value);
                 next.insert(latch_id, next_value);
             }
 
-            // Update all latches together.
-            current = next;
+            trace.push(SimulationStep {
+                state,
+                inputs: input_values.to_vec(),
+                outputs,
+                next_state,
+            });
+
+            // `current` becomes the next latch state. The old `current` map
+            // moves into `next` so its allocation can be reused later.
+            std::mem::swap(&mut current, &mut next);
         }
 
-        output_trace
+        trace
     }
 }
 
@@ -210,7 +232,7 @@ mod tests {
         let result = g.simulate(inputs.as_slice());
         assert_eq!(result.len(), cycles);
         for (step, values) in result.iter().enumerate() {
-            let count = read_bit_vector(values, 0, bits);
+            let count = read_bit_vector(&values.outputs, 0, bits);
             assert_eq!(count, (step & counter_mask) as u64);
             // println!("step: {}, count: {}", step, count);
         }
