@@ -106,8 +106,9 @@ fn main() -> io::Result<()> {
 
             let stimulus_file = File::open(&stimulus)?;
             let stimulus_reader = BufReader::new(stimulus_file);
+            let stimulus_parser = graph::StimulusParser::new(stimulus_reader);
 
-            let trace = graph.simulate(stimulus_reader);
+            let trace = graph.simulate(stimulus_parser);
 
             if pretty {
                 print_pretty_trace(&trace);

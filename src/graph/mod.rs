@@ -6,6 +6,7 @@ mod graphviz;
 mod stimulus;
 
 pub use eval::{SimulationStep, Value};
+pub use stimulus::{Stimulus, StimulusParser};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct NodeId(u32);

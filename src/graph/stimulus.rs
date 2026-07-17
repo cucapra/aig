@@ -1,6 +1,15 @@
-use std::io::{BufRead, BufReader, Read};
+use std::io::BufRead;
 
 use super::eval::Value;
+
+/// Parses text stimulus vectors from any buffered reader.
+pub struct StimulusParser<R: BufRead>(R);
+
+impl<R: BufRead> StimulusParser<R> {
+    pub fn new(reader: R) -> Self {
+        Self(reader)
+    }
+}
 
 /// Something that supplies one input vector per clock cycle.
 pub trait Stimulus {
@@ -24,9 +33,7 @@ impl<'a> Stimulus for &'a [Vec<Value>] {
     type Vector = &'a [Value];
 
     fn next_vector(&mut self) -> Option<Self::Vector> {
-        let Some((first, remaining)) = (*self).split_first() else {
-            return None;
-        };
+        let (first, remaining) = (*self).split_first()?;
 
         *self = remaining;
 
@@ -45,13 +52,14 @@ impl<'a> Stimulus for &'a [Vec<Value>] {
 /// .
 ///
 /// Each line is one clock cycle, and `.` ends the stimulus.
-impl<R: Read> Stimulus for BufReader<R> {
+impl<R: BufRead> Stimulus for StimulusParser<R> {
     type Vector = Vec<Value>;
 
     fn next_vector(&mut self) -> Option<Self::Vector> {
         let mut line = String::new();
 
         let bytes_read = self
+            .0
             .read_line(&mut line)
             .expect("failed to read stimulus file");
 
@@ -68,10 +76,10 @@ impl<R: Read> Stimulus for BufReader<R> {
             return None;
         }
 
-        let mut values = Vec::with_capacity(line.len());
-
-        for (column, byte) in line.bytes().enumerate() {
-            let value = match byte {
+        let values: Vec<_> = line
+            .bytes()
+            .enumerate()
+            .map(|(column, byte)| match byte {
                 b'0' => 0,
 
                 // True is represented by all 1 bits because eval uses
@@ -89,10 +97,8 @@ impl<R: Read> Stimulus for BufReader<R> {
                         char::from(other)
                     );
                 }
-            };
-
-            values.push(value);
-        }
+            })
+            .collect();
 
         Some(values)
     }
