@@ -33,9 +33,7 @@ impl<'a> Stimulus for &'a [Vec<Value>] {
     type Vector = &'a [Value];
 
     fn next_vector(&mut self) -> Option<Self::Vector> {
-        let Some((first, remaining)) = (*self).split_first() else {
-            return None;
-        };
+        let (first, remaining) = (*self).split_first()?;
 
         *self = remaining;
 

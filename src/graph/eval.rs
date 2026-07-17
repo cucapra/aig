@@ -44,8 +44,6 @@ impl AigGraph {
     /// vec![0, 0],   // time 1
     /// vec![1, 1],   // time 2
     /// ]
-    ///
-
     pub fn simulate(&self, mut inputs: impl Stimulus) -> Vec<Vec<Value>> {
         let mut output_trace = Vec::new();
 
@@ -93,5 +91,24 @@ impl AigGraph {
         }
 
         output_trace
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::graph::{AigBuilder, StimulusParser};
+
+    #[test]
+    fn simulate_accepts_stimulus_parser() {
+        let mut builder = AigBuilder::new();
+        let input = builder.add_input();
+        builder.add_output(input);
+        let graph = builder.build();
+
+        let stimulus = b"0\n1\n.\n";
+        let result = graph.simulate(StimulusParser::new(&stimulus[..]));
+
+        assert_eq!(result, vec![vec![0], vec![Value::MAX]]);
     }
 }
