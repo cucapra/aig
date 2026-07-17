@@ -103,8 +103,9 @@ fn main() -> io::Result<()> {
 
             let stimulus_file = File::open(&stimulus)?;
             let stimulus_reader = BufReader::new(stimulus_file);
+            let stimulus_parser = graph::StimulusParser::new(stimulus_reader);
 
-            let output_trace = graph.simulate(stimulus_reader);
+            let output_trace = graph.simulate(stimulus_parser);
 
             // Print one output vector per clock cycle.
             for outputs in output_trace {
@@ -173,4 +174,3 @@ fn parse_aiger_output_path(s: &str) -> Result<PathBuf, String> {
         Err(format!("output file must end with .aag or .aig: {s}"))
     }
 }
-

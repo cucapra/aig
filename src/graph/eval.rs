@@ -1,10 +1,8 @@
-use super::{AigGraph, HashMap, NodeId};
 use super::stimulus::Stimulus;
+use super::{AigGraph, HashMap, NodeId};
 
 pub type Value = usize;
 type Env = HashMap<NodeId, Value>;
-
-
 
 impl AigGraph {
     pub fn eval(&self, id: NodeId, values: &Env) -> Value {
