@@ -117,7 +117,7 @@ fn main() -> io::Result<()> {
             }
         }
 
-        Commands::Convert { input, output } => {
+        Commands::Convert { input: _, output: _ } => {
             todo!("implement conversion logic");
         }
 

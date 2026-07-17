@@ -119,7 +119,6 @@ impl AigGraph {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Commands::Parse;
     use crate::graph::AigBuilder;
 
     fn and(g: &mut AigBuilder, a: NodeId, b: NodeId) -> NodeId {
@@ -166,7 +165,7 @@ mod tests {
 
     fn add(g: &mut AigBuilder, a: &[NodeId], b: &[NodeId]) -> Vec<NodeId> {
         assert_eq!(a.len(), b.len());
-        assert!(a.len() >= 1);
+        assert!(!a.is_empty());
         let (c0, s0) = half_adder(g, a[0], b[0]);
         let mut sum = vec![s0];
         let mut carry = c0;
