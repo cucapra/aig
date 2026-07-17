@@ -207,7 +207,7 @@ mod tests {
         make_counter(&mut g, bits);
         let g = g.build();
         let inputs = vec![vec![]; cycles];
-        let result = g.simulate(&inputs.as_slice());
+        let result = g.simulate(inputs.as_slice());
         assert_eq!(result.len(), cycles);
         for (step, values) in result.iter().enumerate() {
             let count = read_bit_vector(values, 0, bits);
