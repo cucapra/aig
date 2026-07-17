@@ -20,6 +20,82 @@ pub struct SimulationStep {
     pub next_state: Vec<Value>,
 }
 
+/// The state of one simulation step, where graph stores the circuit structure,
+/// and current stores the latch values
+pub struct Simulator<'a> {
+    graph: &'a AigGraph,
+    current: Env,
+}
+
+impl<'a> Simulator<'a> {
+    fn new(graph: &'a AigGraph) -> Self {
+        let mut current = Env::with_capacity(graph.latches.len() + graph.inputs.len());
+
+        // TODO: Use each latch's reset value when reset values are supported.
+        for &latch_id in &graph.latches {
+            current.insert(latch_id, 0);
+        }
+
+        Self { graph, current }
+    }
+
+    pub fn step(&mut self, input_values: &[Value]) -> SimulationStep {
+        // Record the latch state at the beginning of this cycle.
+        let state: Vec<_> = self
+            .graph
+            .latches
+            .iter()
+            .map(|&latch_id| self.graph.eval(latch_id, &self.current))
+            .collect();
+
+        // Insert this cycle's input values.
+        self.current.extend(
+            self.graph
+                .inputs
+                .iter()
+                .copied()
+                .zip(input_values.iter().copied()),
+        );
+
+        // Evaluate the outputs before updating the latches.
+        let outputs: Vec<_> = self
+            .graph
+            .outputs
+            .iter()
+            .map(|&output_id| self.graph.eval(output_id, &self.current))
+            .collect();
+
+        // Compute every next latch value while all current latch values
+        // are still unchanged.
+        let next_state: Vec<_> = self
+            .graph
+            .latches
+            .iter()
+            .map(|&latch_id| {
+                let latch_input = self.graph[latch_id].right();
+                self.graph.eval(latch_input, &self.current)
+            })
+            .collect();
+
+        // All next latch values have now been calculated, so update the
+        // simulator's persistent current state.
+        self.current = self
+            .graph
+            .latches
+            .iter()
+            .copied()
+            .zip(next_state.iter().copied())
+            .collect();
+
+        SimulationStep {
+            state,
+            inputs: input_values.to_vec(),
+            outputs,
+            next_state,
+        }
+    }
+}
+
 impl AigGraph {
     pub fn eval(&self, id: NodeId, values: &Env) -> Value {
         if id.is_false() {
@@ -47,69 +123,21 @@ impl AigGraph {
         }
     }
 
+    /// Start a new simulation with every latch initialized to zero.
+    pub fn simulator(&self) -> Simulator<'_> {
+        Simulator::new(self)
+    }
+
     /// Simulate the circuit for several clock cycles.
-    /// 
-    /// TODO: maybe expand upon this doc some more (i.e. explain Stimulus type a bit)
+    ///
+    /// Creates a Simulator`, repeatedly calls step and collects every step into a trace.
     pub fn simulate(&self, mut inputs: impl Stimulus) -> Vec<SimulationStep> {
+        let mut simulator = self.simulator();
         let mut trace = Vec::new();
-        let mut current = Env::with_capacity(self.latches.len() + self.inputs.len());
 
-        // `next` stores the next value of every latch. It is reused across
-        // clock cycles to avoid allocating a new HashMap each time. Yippy!
-        let mut next = Env::with_capacity(self.latches.len());
-
-        // TODO: Use each latch's reset value when reset values are supported.
-        for &latch_id in &self.latches {
-            current.insert(latch_id, 0);
-        }
-
-        // Each iteration is one time step / one clock cycle
         while let Some(input_vector) = inputs.next_vector() {
-            let input_values = input_vector.as_ref();
-
-            // Record the latch state at the beginning of this cycle
-            let state: Vec<_> = self
-                        .latches
-                        .iter()
-                        .map(|&latch_id| self.eval(latch_id, &current))
-                        .collect();
-
-            // Write this clock cycle's inputs into the current environment
-            for (&input_id, &value) in self.inputs.iter().zip(input_values.iter()) {
-                current.insert(input_id, value);
-            }
-
-            // Evaluate outputs before updating the latches
-            let outputs: Vec<_> = self
-                .outputs
-                .iter()
-                .map(|&output_id| self.eval(output_id, &current))
-                .collect();
-
-            // Compute all next latch values without updating any latch yet
-            next.clear();
-
-            let mut next_state = Vec::with_capacity(self.latches.len());
-
-            for &latch_id in &self.latches {
-                let latch_node = &self[latch_id];
-                let latch_input = latch_node.right();
-                let next_value = self.eval(latch_input, &current);
-
-                next_state.push(next_value);
-                next.insert(latch_id, next_value);
-            }
-
-            trace.push(SimulationStep {
-                state,
-                inputs: input_values.to_vec(),
-                outputs,
-                next_state,
-            });
-
-            // `current` becomes the next latch state. The old `current` map
-            // moves into `next` so its allocation can be reused later.
-            std::mem::swap(&mut current, &mut next);
+            let step = simulator.step(input_vector.as_ref());
+            trace.push(step);
         }
 
         trace
@@ -220,20 +248,17 @@ mod tests {
 
     #[test]
     fn test_sim_counter() {
-        let bits = 8;
-        let cycles = (1 << bits) + 1;
-
-        let counter_mask = (1 << bits) - 1;
+        let bits = 30;
+        let cycles = (1usize << bits) + 1;
+        let counter_mask = (1usize << bits) - 1;
         let mut g = AigBuilder::new();
         make_counter(&mut g, bits);
         let g = g.build();
-        let inputs = vec![vec![]; cycles];
-        let result = g.simulate(inputs.as_slice());
-        assert_eq!(result.len(), cycles);
-        for (step, values) in result.iter().enumerate() {
-            let count = read_bit_vector(&values.outputs, 0, bits);
+        let mut simulator = g.simulator();
+        for step in 0..cycles {
+            let result = simulator.step(&[]);
+            let count = read_bit_vector(&result.outputs, 0, bits);
             assert_eq!(count, (step & counter_mask) as u64);
-            // println!("step: {}, count: {}", step, count);
         }
     }
 }
