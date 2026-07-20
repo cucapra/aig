@@ -36,11 +36,9 @@ jobs:
          sudo make PREFIX=/usr/local install
 
       - name: Compare simulations and record times
-        run: |
-            turnt --diff tests/simulation/inputs/*.aag
+        run: turnt --diff tests/simulation/inputs/*.aag
    
       - name: Show simulation times and errors
-        if: always()
         run: cat tests/simulation/outputs/*.time
 
           
