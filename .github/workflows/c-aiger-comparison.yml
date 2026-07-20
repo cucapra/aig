@@ -38,6 +38,9 @@ jobs:
       - name: Compare simulations and record times
         run: |
             turnt --diff tests/simulation/inputs/*.aag
-            cat tests/simulation/outputs/*.time
+   
+      - name: Show simulation times and errors
+        if: always()
+        run: cat tests/simulation/outputs/*.time
 
           

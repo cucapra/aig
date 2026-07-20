@@ -4,6 +4,6 @@ out_dir = "../outputs"
 output.sim = "-"
 
 [envs.c]
-command = "{{ time -p aigsim {filename} inputs/{base}.stim; }} 2> outputs/{base}.c.time | tail -n +2"
+command = "{{ time -p aigsim {filename} inputs/{base}.stim; }} 2> outputs/{base}.c.time | sed '/^Trace is a witness for:/d'"
 out_dir = "../outputs"
 output.sim = "-"
