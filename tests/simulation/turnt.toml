@@ -1,9 +1,9 @@
 [envs.rust]
-command = "/usr/bin/time -f 'Rust: %e seconds' -o outputs/{base}.rust.time ../../target/release/aig simulate {filename} inputs/{base}.stim"
+command = "{{ time -p ../../target/release/aig simulate {filename} inputs/{base}.stim; }} 2> outputs/{base}.rust.time"
 out_dir = "../outputs"
 output.sim = "-"
 
 [envs.c]
-command = "/usr/bin/time -f 'C: %e seconds' -o outputs/{base}.c.time aigsim {filename} inputs/{base}.stim"
+command = "{{ time -p aigsim {filename} inputs/{base}.stim; }} 2> outputs/{base}.c.time | tail -n +2"
 out_dir = "../outputs"
 output.sim = "-"

@@ -2,6 +2,8 @@ name: Compare Against C AIGER
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
 
 env:
   CARGO_TERM_COLOR: always
@@ -33,12 +35,9 @@ jobs:
          ./configure.sh && make
          sudo make PREFIX=/usr/local install
 
-      - name: Compare Rust and C
-        run: turnt --diff tests/simulation/inputs/*.aag
-
       - name: Compare simulations and record times
         run: |
             turnt --diff tests/simulation/inputs/*.aag
-            cat tests/simulation/times/*.time
+            cat tests/simulation/outputs/*.time
 
           
