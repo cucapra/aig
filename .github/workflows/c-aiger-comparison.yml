@@ -1,0 +1,44 @@
+name: Compare Against C AIGER
+
+on:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install Turnt
+        run: uv tool install turnt
+
+      - name: Build Rust implementation
+        run: cargo build --release
+
+      - name: Install C AIGER
+        run: |
+         git clone https://github.com/arminbiere/aiger.git /tmp/aiger
+         cd /tmp/aiger
+         ./configure.sh && make
+         sudo make PREFIX=/usr/local install
+
+      - name: Compare Rust and C
+        run: turnt --diff tests/simulation/inputs/*.aag
+
+      - name: Compare simulations and record times
+        run: |
+            turnt --diff tests/simulation/inputs/*.aag
+            cat tests/simulation/times/*.time
+
+          
