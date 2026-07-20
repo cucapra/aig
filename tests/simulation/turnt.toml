@@ -1,9 +1,9 @@
 [envs.rust]
-command = "{{ time -p ../../target/release/aig simulate {filename} inputs/{base}.stim; }} 2> outputs/{base}.rust.time"
+command = "../../target/debug/aig simulate {filename} inputs/{base}.stim"
 out_dir = "../outputs"
 output.sim = "-"
 
 [envs.c]
-command = "{{ time -p aigsim {filename} inputs/{base}.stim; }} 2> outputs/{base}.c.time | sed '/^Trace is a witness for:/d'"
+command = "aigsim {filename} inputs/{base}.stim | sed '/^Trace is a witness for:/d'"
 out_dir = "../outputs"
 output.sim = "-"
