@@ -1,0 +1,9 @@
+[envs.rust]
+command = "../../target/debug/aig simulate {filename} inputs/{base}.stim"
+out_dir = "../outputs"
+output.sim = "-"
+
+[envs.c]
+command = "aigsim {filename} inputs/{base}.stim | sed '/^Trace is a witness for:/d'"
+out_dir = "../outputs"
+output.sim = "-"
