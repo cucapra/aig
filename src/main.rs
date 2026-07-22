@@ -117,7 +117,10 @@ fn main() -> io::Result<()> {
             }
         }
 
-        Commands::Convert { input: _, output: _ } => {
+        Commands::Convert {
+            input: _,
+            output: _,
+        } => {
             todo!("implement conversion logic");
         }
 
@@ -181,7 +184,7 @@ fn values_to_bits(values: &[graph::Value]) -> String {
 
 /// Print the transition format used by the C AIGER simulator:
 ///
-/// current-state inputs outputs next-state
+/// current-state inputs outputs current-state
 fn print_aiger_trace(trace: &[graph::SimulationStep]) {
     for step in trace {
         println!(
@@ -189,7 +192,7 @@ fn print_aiger_trace(trace: &[graph::SimulationStep]) {
             values_to_bits(&step.state),
             values_to_bits(&step.inputs),
             values_to_bits(&step.outputs),
-            values_to_bits(&step.next_state),
+            values_to_bits(&step.state),
         );
     }
 }

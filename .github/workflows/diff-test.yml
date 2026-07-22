@@ -35,7 +35,5 @@ jobs:
          ./configure.sh && make
          sudo make PREFIX=/usr/local install
 
-      - name: Compare simulations and record times
-        run: turnt --diff tests/simulation/inputs/*.aag
-
-          
+      - name: Compare Rust simulations against C AIGER
+        run: turnt --diff -e rust -e c tests/inputs/*.aag

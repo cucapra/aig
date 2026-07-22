@@ -1,0 +1,20 @@
+[envs.raw]
+command = "../target/debug/aig dot {filename}"
+out_dir = "../aiger/outputs"
+output."raw.dot" = "-"
+
+[envs.opt]
+command = "../target/debug/aig dot {filename} --pre-optimize"
+out_dir = "../aiger/outputs"
+output."opt.dot" = "-"
+
+# Save .sim snapshots from envs.c so Rust is checked against C AIGER output
+[envs.rust]
+command = "../target/debug/aig simulate {filename} inputs/{base}.stim"
+out_dir = "../simulation/outputs"
+output.sim = "-"
+
+[envs.c]
+command = "aigsim {filename} inputs/{base}.stim | sed '/^Trace is a witness for:/d'"
+out_dir = "../simulation/outputs"
+output.sim = "-"
