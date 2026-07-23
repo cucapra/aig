@@ -21,7 +21,11 @@ def write_stimulus(aag_path: Path) -> None:
 
     stim_path = aag_path.with_suffix(".stim")
 
-    stim_path.write_text("\n".join([*input_rows, "."]) + "\n")
+    with open(stim_path, 'w') as f:
+        for row in input_rows:
+            print(row, file=f)
+        print('.', file =f)
+
     print(f"wrote {stim_path}")
 
 
