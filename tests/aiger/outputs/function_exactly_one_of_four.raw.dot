@@ -1,0 +1,62 @@
+digraph AIG {
+	rankdir=BT;
+	ordering=out;
+	node [fontname="Helvetica"];
+	edge [fontname="Helvetica"];
+
+	const_false [label="false", shape=box];
+
+	n0 [label="a", shape=box];
+	n1 [label="b", shape=box];
+	n2 [label="c", shape=box];
+	n3 [label="d", shape=box];
+
+
+	n4 [label="AND", shape=circle];
+	n5 [label="AND", shape=circle];
+	n6 [label="AND", shape=circle];
+	n7 [label="AND", shape=circle];
+	n8 [label="AND", shape=circle];
+	n9 [label="AND", shape=circle];
+	n10 [label="AND", shape=circle];
+	n11 [label="AND", shape=circle];
+	n12 [label="AND", shape=circle];
+	n13 [label="AND", shape=circle];
+	n14 [label="AND", shape=circle];
+	n15 [label="AND", shape=circle];
+	n16 [label="AND", shape=circle];
+	n17 [label="AND", shape=circle];
+
+	n1 -> n4 [label="left", style=dashed];
+	n0 -> n4 [label="right", style=dashed];
+	n4 -> n5 [label="left"];
+	n2 -> n5 [label="right"];
+	n5 -> n6 [label="left"];
+	n3 -> n6 [label="right", style=dashed];
+	n1 -> n7 [label="left"];
+	n0 -> n7 [label="right", style=dashed];
+	n7 -> n8 [label="left"];
+	n2 -> n8 [label="right", style=dashed];
+	n8 -> n9 [label="left"];
+	n3 -> n9 [label="right", style=dashed];
+	n1 -> n10 [label="left", style=dashed];
+	n0 -> n10 [label="right"];
+	n10 -> n11 [label="left"];
+	n2 -> n11 [label="right", style=dashed];
+	n11 -> n12 [label="left"];
+	n3 -> n12 [label="right", style=dashed];
+	n12 -> n13 [label="left", style=dashed];
+	n9 -> n13 [label="right", style=dashed];
+	n13 -> n14 [label="left"];
+	n6 -> n14 [label="right", style=dashed];
+	n4 -> n15 [label="left"];
+	n2 -> n15 [label="right", style=dashed];
+	n15 -> n16 [label="left"];
+	n3 -> n16 [label="right"];
+	n16 -> n17 [label="left", style=dashed];
+	n14 -> n17 [label="right"];
+
+
+	out0 [label="out0", shape=box];
+	n17 -> out0 [style=dashed];
+}

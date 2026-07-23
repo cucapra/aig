@@ -41,4 +41,4 @@ jobs:
         run: cargo build
 
       - name: Run AIGER snapshot tests
-        run: turnt tests/aiger/inputs/*.aag
+        run: turnt -e raw -e opt tests/inputs/*.aag
