@@ -1,222 +1,201 @@
-# AIG in Rust (last updated: 6/22/26)
+# raig
 
-And-Inverter Graphs (AIGs) implemented in Rust for formal verification and circuit synthesis.
+`raig` (pronounced “rage”) is a dependency-free library for working with
+<a href="https://en.wikipedia.org/wiki/And-inverter_graph" target="_blank" rel="noopener noreferrer">And-Inverter Graphs (AIGs)</a>
+in Rust, developed at
+<a href="https://capra.cs.cornell.edu/" target="_blank" rel="noopener noreferrer">Cornell's Capra Lab</a>.
 
-## Overview
+An AIG represents Boolean logic with AND gates and inverted edges. This compact
+form is useful for logic verification, synthesis, and testing tools.
 
-An And-Inverter Graph (AIG) is a data structure used to represent Boolean logic circuits. Since any Boolean circuit can be represented using only `AND` and `NOT`, an AIG represents nodes as `AND` gates and edges as either regular or inverted connections
+The library has no default dependencies. The optional `cli` feature enables the
+`raig` command-line tool and its `clap` dependency.
 
+## Installation
 
-## Internal Representation
+Add the library to a Rust project:
 
-The graph stores AIG nodes in a `Vec<AigNode>`:
+```sh
+cargo add raig
+```
+
+Install the command-line tool:
+
+```sh
+cargo install raig --features cli
+```
+
+## Tutorial
+
+### 1.0 Start With an AIGER File
+
+The most common starting point is an AIGER file from another tool. `raig`
+accepts anything that implements `std::io::BufRead`, so the same parser works
+for local files, stdin, network responses, and uploaded file bytes.
+
+This tiny ASCII AIGER circuit has one input and one output. The output is
+exactly the input, so it behaves like an identity function.
+
+```text
+aag 1 1 0 1 0
+2
+2
+```
+
+The header is `aag M I L O A`. In this example, `M = 1`, `I = 1`, `L = 0`,
+`O = 1`, and `A = 0`: one input, no latches, one output, and no AND gates.
+
+#### 1.1 Parse Uploaded Bytes
 
 ```rust
-pub struct AigGraph {
-    nodes: Vec<AigNode>,
-}
+use raig::aiger::run_parser_with_options;
+use std::io::BufReader;
+
+let uploaded_aiger = b"aag 1 1 0 1 0\n2\n2\n";
+let mut reader = BufReader::new(&uploaded_aiger[..]);
+let graph = run_parser_with_options(&mut reader, true)?;
+# Ok::<(), std::io::Error>(())
 ```
 
-AND nodes store two child `NodeId: u32`s:
+The second argument is `pre_optimize`. Pass `true` to simplify common identities
+while parsing, such as `x & true`, `x & false`, `x & x`, and `x & !x`.
+
+#### 1.2 Parse a File From Disk
 
 ```rust
-AigNode {
-    left: NodeId,
-    right: NodeId,
-}
+use raig::aiger::run_parser_with_options;
+use std::fs::File;
+use std::io::BufReader;
+
+let file = File::open("circuit.aag")?;
+let mut reader = BufReader::new(file);
+let graph = run_parser_with_options(&mut reader, true)?;
+# Ok::<(), std::io::Error>(())
 ```
 
-Each child `NodeId` can refer to a constant, an input, an AND node, or an inverted version of any of those. This means NOT gates are not stored as separate nodes. Instead, inversion is represented directly on the `NodeId`.
+### 2.0 Work With the Parsed Graph
+
+After parsing, you have an internal AIG representation. From there, the most
+common next steps are simulation and visualization.
+
+#### 2.1 Simulate the Circuit
+
+Simulation inputs are vectors of `raig::graph::Value`. Use `0` for false and
+`Value::MAX` for true.
 
 ```rust
-pub struct AigNode {
-    left: NodeId,
-    right: NodeId,
-}
-``` 
+use raig::aiger::run_parser_with_options;
+use raig::graph::Value;
+use std::io::BufReader;
 
-The least significant bit of a `NodeId` is used as the inversion bit:
+let uploaded_aiger = b"aag 1 1 0 1 0\n2\n2\n";
+let mut reader = BufReader::new(&uploaded_aiger[..]);
+let graph = run_parser_with_options(&mut reader, true)?;
 
-```text
-even NodeId = regular signal
-odd NodeId  = inverted signal
+let stimulus = vec![
+    vec![0],
+    vec![Value::MAX],
+];
+let trace = graph.simulate(stimulus.as_slice());
+
+assert_eq!(trace[0].outputs[0], 0);
+assert_eq!(trace[1].outputs[0], Value::MAX);
+# Ok::<(), std::io::Error>(())
 ```
 
-So inverting a `NodeId` just toggles the last bit.
+`Value` is a packed Boolean value. Other bit patterns can be used to evaluate
+many independent Boolean lanes in parallel with bitwise operations.
 
-```text
-a = NodeId(2);
-!a = NodeId(3);
-b = NodeId(4);
-!b = NodeId(5);
-```
-
-Constants are represented directly as special reserved `NodeId` values:
+#### 2.2 Render Graphviz DOT
 
 ```rust
-impl NodeId {
-    pub const FALSE: NodeId = NodeId(0);
-    pub const TRUE: NodeId = NodeId(1);
-}
+use raig::aiger::run_parser_with_options;
+use std::io::BufReader;
+
+let uploaded_aiger = b"aag 1 1 0 1 0\n2\n2\n";
+let mut reader = BufReader::new(&uploaded_aiger[..]);
+let graph = run_parser_with_options(&mut reader, true)?;
+
+let dot = graph.to_dot();
+assert!(dot.contains("digraph AIG"));
+# Ok::<(), std::io::Error>(())
 ```
 
-This works because `NodeId(1)` is just `NodeId(0)` with the inversion bit set:
+Render DOT with Graphviz:
+
+```sh
+dot -Tsvg graph.dot -o graph.svg
+```
+
+### 3.0 Use the CLI
+
+Parse an AIGER file:
+
+```sh
+raig parse circuit.aag
+```
+
+Generate DOT:
+
+```sh
+raig dot circuit.aag --output circuit.dot
+```
+
+Simulate with a stimulus file:
+
+```sh
+raig simulate circuit.aag stimulus.txt
+```
+
+Stimulus files contain one input vector per line and may end with `.`:
 
 ```text
-NodeId(0) = false
-NodeId(1) = !false = true
+0
+1
+.
 ```
 
-Constants are not stored as nodes in the graph vector. Real graph nodes start at `NodeId(2)` since `NodeId(0)` and `NodeId(1)` are reserved for the constants `true` and `false`:
+### 4.0 Build Graphs Directly
 
-```text
-graph[0] -> NodeId(2)
-graph[1] -> NodeId(4)
-graph[2] -> NodeId(6)
-```
+You can also build AIGs directly in Rust with `AigBuilder`. This is useful for
+generating circuits, writing tests, or integrating with another frontend.
 
-Their inverted versions are represented by setting the least significant bit:
-
-```text
-NodeId(2) = graph[0]
-NodeId(3) = !graph[0]
-
-NodeId(4) = graph[1]
-NodeId(5) = !graph[1]
-
-NodeId(6) = graph[2]
-NodeId(7) = !graph[2]
-```
-
-Inputs are stored as `NodeId`s and are represented by setting both child fields to a special marker value:
+#### 4.1 Build an AND Gate
 
 ```rust
-const INPUT_NODE_MARKER: NodeId = NodeId(NODE_ID_MASK);
+use raig::graph::{AigBuilder, Value};
+
+let mut builder = AigBuilder::new();
+let a = builder.add_input();
+let b = builder.add_input();
+let output = builder.add_and_optimized(a, b);
+builder.add_output(output);
+
+let graph = builder.build();
+let inputs = vec![
+    vec![Value::MAX, Value::MAX],
+    vec![Value::MAX, 0],
+];
+let trace = graph.simulate(inputs.as_slice());
+
+assert_eq!(trace[0].outputs[0], Value::MAX);
+assert_eq!(trace[1].outputs[0], 0);
 ```
 
-`NODE_ID_MASK` is all `1`s except for the least significant inversion bit:
+## AIGER Support
 
-```text
-NODE_ID_MASK = 11111111111111111111111111111110
-```
+`raig` supports the core ASCII and binary AIGER formats:
 
-So the input marker is:
+- headers with `aag M I L O A` or `aig M I L O A`
+- inputs
+- latches
+- outputs
+- AND gates
+- AIGER 1.9 extension counts in the header
 
-```text
-INPUT_NODE_MARKER = NodeId(11111111111111111111111111111110)
-```
+ASCII latch reset fields are accepted when the reset value is `0`. Other reset
+values are not represented yet.
 
-For example, an input node is stored like this:
+## License
 
-```rust
-AigNode {
-    left: INPUT_NODE_MARKER,
-    right: INPUT_NODE_MARKER,
-}
-```
-
-While multiple inputs contain the same internal marker data, but they are still different inputs because they have different `NodeId`s:
-
-```text
-graph[0] = input node -> NodeId(2)
-graph[1] = input node -> NodeId(4)
-graph[2] = input node -> NodeId(6)
-```
-
-Latches are also stored as graph nodes. They are recognized by setting the left child to the same marker and storing the latch input, or next-state signal, in the right child:
-
-```rust
-AigNode {
-    left: INPUT_NODE_MARKER,
-    right: next_state,
-}
-```
-
-This lets latch state variables have stable `NodeId`s like inputs and AND nodes, while the right side points to the signal that drives the latch on the next step.
-
-
-
-
-
-## AIGER Input Support
-
-The parser supports both ASCII `.aag` files and binary `.aig` files.
-
-ASCII AIGER files begin with a header of the form:
-
-```text
-aag M I L O A
-```
-
-Binary AIGER files use the same counts with an `aig` header:
-
-```text
-aig M I L O A
-```
-
-where:
-
-```text
-M = maximum variable index
-I = number of inputs
-L = number of latches
-O = number of outputs
-A = number of AND gates
-```
-
-The header must satisfy:
-
-```text
-M >= I + L + A
-```
-
-Latch lines are supported in the ASCII parser:
-
-```text
-<latch literal> <next-state literal> [reset]
-```
-
-The optional reset field is currently accepted only when it is `0`, because reset values are not represented in `AigNode`.
-
-In binary AIGER, input literals and latch current-state literals are implicit. The parser reads one next-state literal per latch, one output literal per output, then decodes each AND gate from its binary delta encoding. Binary files must satisfy:
-
-```text
-M = I + L + A
-```
-
-The parser is split by responsibility:
-
-```text
-src/aiger_parser.rs         = header parsing, format validation, dispatch
-src/aiger_ascii_parser.rs   = ASCII body parsing
-src/aiger_binary_parser.rs  = binary body parsing
-```
-
-## Parsing an AIGER File
-
-To parse an AIGER file, use:
-
-```rust
-run_parser_with_options(file_name: &str, pre_optimize: bool) -> io::Result<()>
-```
-
-Example:
-
-```rust
-run_parser_with_options("example.aag", true)?;
-run_parser_with_options("example.aig", true)?;
-```
-
-The `pre_optimize` option controls whether the parser performs simple on-the-fly optimizations while building the graph.
-
-If `pre_optimize` is `true`, the parser simplifies expressions before inserting new AND nodes. For example:
-
-```text
-x & false = false
-x & true  = x
-x & x     = x
-x & !x    = false
-...
-```
-
-If `pre_optimize` is `false`, the parser builds the graph directly from the AIGER file without applying these simplifications.
+Licensed under the MIT license.
