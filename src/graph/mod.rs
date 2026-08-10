@@ -1,3 +1,8 @@
+//! Graph data structures and simulation utilities for AIGs.
+//!
+//! Most users start with [`AigBuilder`], add inputs, latches, AND gates, and
+//! outputs, then call [`AigBuilder::build`] to get an [`AigGraph`].
+
 use std::collections::HashMap;
 use std::ops::Index;
 
@@ -8,18 +13,27 @@ mod stimulus;
 pub use eval::{SimulationStep, Simulator, Value};
 pub use stimulus::{Stimulus, StimulusParser};
 
+/// An identifier for a signal in an AIG.
+///
+/// A `NodeId` can refer to a constant, an input, a latch, an AND node, or an
+/// inverted version of one of those signals.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct NodeId(u32);
 
 const INVERSION_MASK: u32 = 0b0000_0000_0000_0000_0000_0000_0000_0001;
 const NODE_ID_MASK: u32 = 0b1111_1111_1111_1111_1111_1111_1111_1110;
 
+/// One node in an AIG graph.
+///
+/// Inputs and latches are represented as marker nodes. AND nodes store their
+/// left and right input signals.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct AigNode {
     left: NodeId,
     right: NodeId,
 }
 
+/// A built AIG that can be evaluated, simulated, or rendered as DOT.
 #[derive(Debug)]
 pub struct AigGraph {
     nodes: Vec<AigNode>,
@@ -28,6 +42,10 @@ pub struct AigGraph {
     outputs: Vec<NodeId>,
 }
 
+/// Incrementally builds an [`AigGraph`].
+///
+/// Use [`AigBuilder::add_and_optimized`] to canonicalize and simplify common
+/// AND patterns while constructing the graph.
 #[derive(Debug)]
 pub struct AigBuilder {
     graph: AigGraph,
@@ -35,30 +53,32 @@ pub struct AigBuilder {
 }
 
 impl NodeId {
+    /// The false constant.
     pub const FALSE: NodeId = NodeId(0);
+
+    /// The true constant.
     pub const TRUE: NodeId = NodeId(1);
 
-    /// Reserved marker used inside AigNode to represent "this node is an input/latch marker".
+    /// Reserved marker used inside [`AigNode`] to represent an input or latch.
     /// This should never be a real graph node ID.
     pub const NONE: NodeId = NodeId(NODE_ID_MASK);
 
-    /// inversion is specified by the LSB of a NodeId being `1`.
+    /// Return whether this signal is inverted.
     pub fn is_inverted(self) -> bool {
         (self.0 & INVERSION_MASK) != 0
     }
 
-    /// Since the LSB defines inversion, the
-    /// rest of the NodeId (i.e., the "regular" part) is its unique identifier
+    /// Return this signal without its inversion bit.
     pub fn regular(self) -> Self {
         Self(self.0 & NODE_ID_MASK)
     }
 
-    /// To invert a Node, simply flip its LSB
+    /// Return the inverted form of this signal.
     pub fn invert(self) -> Self {
         Self(self.0 ^ INVERSION_MASK)
     }
 
-    /// True or False is represented by a NodeId having a "regular" value of all zeros
+    /// Return whether this signal is one of the two constants.
     pub fn is_const(self) -> bool {
         self.regular() == NodeId::FALSE
     }
@@ -68,103 +88,35 @@ impl NodeId {
         self.regular() == Self::NONE
     }
 
-    /// Constant False = regular value of all zeros and a LSB of 0
+    /// Return whether this signal is the false constant.
     pub fn is_false(self) -> bool {
         self == NodeId::FALSE
     }
 
-    /// Constant True = regular value of all zeros and a LSB of 1
-    /// (i.e., True is the inversion of False!)
+    /// Return whether this signal is the true constant.
     pub fn is_true(self) -> bool {
         self == NodeId::TRUE
     }
 
-    /// converts a NodeID to an index in our internal represntation of an AIG
-    /// see `impl TryFrom<NodeId> for usize` the specific logic of this, and
-    /// `impl From<usize> for NodeId` for converting the other way (i.e. graph index to NodeID)
     fn index(self) -> usize {
         usize::try_from(self).expect("NodeId does not correspond to a graph index")
     }
 }
 
-/// Conversion from `NodeId` to graph index.
+/// Convert a non-constant, non-marker `NodeId` to the corresponding graph index.
 ///
-/// Our special markers are reserved for identifying inputs and latches, so we do
-/// not allow `NodeId`s with those values to be treated as ordinary graph node
-/// IDs. Otherwise, we might falsely identify an AND node as being an input or a
-/// latch.
+/// Constants and marker values are not stored as ordinary graph nodes, so they
+/// cannot be converted into indices.
 ///
-/// Constants are also not stored in the graph, so `NodeId::FALSE` and
-/// `NodeId::TRUE` cannot be converted into graph indices.
+/// The graph vector is zero-indexed, while real node IDs start after the
+/// constants and reserve the least significant bit for inversion:
 ///
-/// The main idea is that the graph vector is indexed from 0:
-///
-/// graph[0]
-/// graph[1]
-/// graph[2]
-/// ...
-///
-///
-/// But `NodeId`s do not start at 0. We reserve:
-///
-///
-/// NodeId(0) = false
-/// NodeId(1) = true / inverted false
-///
-///
-/// So the first actual graph node has to start after the constants. That gives
-/// us:
-///
-///
+/// ```text
 /// graph[0] -> NodeId(2)
 /// graph[1] -> NodeId(4)
 /// graph[2] -> NodeId(6)
-///
-/// Notice that all real, non-inverted graph nodes are even. This is intentional:
-/// the least significant bit is reserved as the inversion bit.
-///
-/// For example:
-///
-/// NodeId(6) = regular node
-/// NodeId(7) = inverted version of NodeId(6)
-///
-///
-/// In binary, that looks like:
-///
-///
-/// 6 = 0b110
-/// 7 = 0b111
-///
-///
-/// So flipping the last bit toggles whether the edge is inverted, while the rest
-/// of the bits (the "regular" bits) still identify the same underlying graph node.
-///
-/// That means when we want the graph index, we first ignore the inversion bit by
-/// using the regular node ID. Then we undo the encoding:
-///
-///
-/// graph[0] -> NodeId(2)
-/// graph[1] -> NodeId(4)
-/// graph[2] -> NodeId(6)
-///
-///
-/// Dividing by 2 gives:
-///
-///
-/// NodeId(2) / 2 = 1
-/// NodeId(4) / 2 = 2
-/// NodeId(6) / 2 = 3
-///
-///
-/// But graph indices start at 0, not 1, so we subtract 1:
-///
-/// NodeId(2) / 2 - 1 = 0
-/// NodeId(4) / 2 - 1 = 1
-/// NodeId(6) / 2 - 1 = 2
-///
-/// Therefore:
-///
-/// graph_index = (regular_node_id / 2) - 1
+/// NodeId(7) = inverted NodeId(6)
+/// ```
 impl TryFrom<NodeId> for usize {
     type Error = &'static str;
 
@@ -183,11 +135,13 @@ impl TryFrom<NodeId> for usize {
     }
 }
 
-/// Graph index -> NodeId
+/// Convert a graph index to its regular, non-inverted `NodeId`.
 ///
+/// ```text
 /// graph[0] -> NodeId(2)
 /// graph[1] -> NodeId(4)
 /// graph[2] -> NodeId(6)
+/// ```
 impl From<usize> for NodeId {
     fn from(index: usize) -> Self {
         // We reserve NODE_ID_MASK / INPUT_NODE_MARKER as a special marker,
@@ -222,26 +176,39 @@ impl AigNode {
         }
     }
 
+    /// Return the left input signal for this node.
+    ///
+    /// This is meaningful for AND nodes. For inputs and latches, this is an
+    /// internal marker value.
     pub fn left(&self) -> NodeId {
         self.left
     }
 
+    /// Return the right input signal for this node.
+    ///
+    /// For latches, this is the next-state signal.
     pub fn right(&self) -> NodeId {
         self.right
     }
 
+    /// Return whether this node is an input marker.
     pub fn is_input(&self) -> bool {
         self.left.is_marker() && self.right.is_marker()
     }
 
+    /// Return whether this node is a latch marker.
     pub fn is_latch(&self) -> bool {
         self.left.is_marker() && !self.right.is_marker()
     }
 
+    /// Return whether this node is an AND gate.
     pub fn is_and(&self) -> bool {
         !self.left.is_marker()
     }
 
+    /// Set the next-state signal for a latch.
+    ///
+    /// Panics if this node is not a latch.
     pub fn set_latch_input(&mut self, latch_input: NodeId) {
         assert!(
             self.is_latch(),
@@ -253,6 +220,7 @@ impl AigNode {
 }
 
 impl AigGraph {
+    /// Create an empty graph.
     pub fn new() -> Self {
         Self {
             nodes: Vec::new(),
@@ -262,12 +230,17 @@ impl AigGraph {
         }
     }
 
+    /// Return a mutable reference to a graph node by ID.
+    ///
+    /// This is mainly useful for filling latch next-state signals after the
+    /// latch has been created.
     pub fn node(&mut self, id: NodeId) -> &mut AigNode {
         &mut self.nodes[id.index()]
     }
 }
 
 impl AigBuilder {
+    /// Create a new empty builder.
     pub fn new() -> Self {
         Self {
             graph: AigGraph::new(),
@@ -275,14 +248,17 @@ impl AigBuilder {
         }
     }
 
+    /// Finish building and return the graph.
     pub fn build(self) -> AigGraph {
         self.graph
     }
 
+    /// Return a mutable reference to a node already added to the graph.
     pub fn node(&mut self, id: NodeId) -> &mut AigNode {
         self.graph.node(id)
     }
 
+    /// Add a primary input and return its signal ID.
     pub fn add_input(&mut self) -> NodeId {
         let index = self.graph.nodes.len();
         let id = NodeId::from(index);
@@ -293,6 +269,10 @@ impl AigBuilder {
         id
     }
 
+    /// Add a latch initialized to a next-state signal.
+    ///
+    /// If the next-state signal is not known yet, pass [`NodeId::FALSE`] and
+    /// update the latch later with [`AigNode::set_latch_input`].
     pub fn add_latch(&mut self, latch_input: NodeId) -> NodeId {
         let index = self.graph.nodes.len();
         let id = NodeId::from(index);
@@ -303,6 +283,7 @@ impl AigBuilder {
         id
     }
 
+    /// Add an AND gate without simplification or structural hashing.
     pub fn add_and_raw(&mut self, left: NodeId, right: NodeId) -> NodeId {
         let index = self.graph.nodes.len();
         let id = NodeId::from(index);
@@ -312,6 +293,10 @@ impl AigBuilder {
         id
     }
 
+    /// Add an AND gate with simple Boolean simplification and structural hashing.
+    ///
+    /// This reuses equivalent AND nodes and simplifies patterns such as
+    /// `x & true`, `x & false`, `x & x`, and `x & !x`.
     pub fn add_and_optimized(&mut self, left: NodeId, right: NodeId) -> NodeId {
         // x & false = false
         if left.is_false() || right.is_false() {
@@ -359,6 +344,7 @@ impl AigBuilder {
         id
     }
 
+    /// Add a primary output signal.
     pub fn add_output(&mut self, output: NodeId) {
         self.graph.outputs.push(output);
     }

@@ -1,11 +1,9 @@
 use clap::{Parser, Subcommand};
+use raig::aiger::run_parser_with_options;
+use raig::graph;
 use std::fs::{self, File};
 use std::io::{self, BufReader};
 use std::path::PathBuf;
-
-pub mod aiger;
-pub mod graph;
-use aiger::run_parser_with_options;
 
 #[derive(Parser, Debug)]
 #[command(version, about = "AIGER command-line tool")]

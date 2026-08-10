@@ -1,3 +1,23 @@
+//! AIGER parsing support.
+//!
+//! Use [`run_parser_with_options`] to parse ASCII `.aag` or binary `.aig`
+//! input from any [`BufRead`] source into an [`AigGraph`].
+//!
+//! ```
+//! use raig::aiger::run_parser_with_options;
+//! use raig::graph::Value;
+//! use std::io::BufReader;
+//!
+//! let aiger = b"aag 1 1 0 1 0\n2\n2\n";
+//! let mut reader = BufReader::new(&aiger[..]);
+//! let graph = run_parser_with_options(&mut reader, true)?;
+//!
+//! let inputs = vec![vec![Value::MAX]];
+//! let trace = graph.simulate(inputs.as_slice());
+//! assert_eq!(trace[0].outputs[0], Value::MAX);
+//! # Ok::<(), std::io::Error>(())
+//! ```
+
 use std::io::{self, BufRead, Error};
 
 mod ascii_parser;
@@ -7,22 +27,45 @@ use crate::graph::{AigGraph, NodeId};
 use ascii_parser::parse_ascii_aiger_into_graph;
 use binary_parser::parse_binary_aiger_into_graph;
 
+/// Parsed metadata from an AIGER header line.
 #[derive(Debug)]
 pub struct AigerHeader {
+    /// `true` for ASCII AIGER (`aag`), `false` for binary AIGER (`aig`).
     pub is_ascii: bool,
+
+    /// Maximum variable index (`M` in the AIGER header).
     pub max_var: usize,
+
+    /// Number of primary inputs.
     pub num_inputs: usize,
+
+    /// Number of latches.
     pub num_latches: usize,
+
+    /// Number of primary outputs.
     pub num_outputs: usize,
+
+    /// Number of AND gates.
     pub num_and_gates: usize,
 
-    // From the AIGER 1.9 extension.
+    /// Number of bad-state properties from the AIGER 1.9 extension.
     pub num_bad_states: usize,
+
+    /// Number of invariant constraints from the AIGER 1.9 extension.
     pub num_invariants: usize,
+
+    /// Number of justice properties from the AIGER 1.9 extension.
     pub num_justice: usize,
+
+    /// Number of fairness constraints from the AIGER 1.9 extension.
     pub num_fairness: usize,
 }
 
+/// Parse an AIGER stream into an [`AigGraph`].
+///
+/// The parser accepts ASCII AIGER (`aag`) and binary AIGER (`aig`) input. When
+/// `pre_optimize` is `true`, common Boolean identities are simplified while the
+/// graph is constructed.
 pub fn run_parser_with_options(
     reader: &mut impl BufRead,
     pre_optimize: bool,
@@ -45,10 +88,13 @@ fn parse_optional_field(parser: &mut LineParser) -> usize {
     val
 }
 
+/// Read and validate an AIGER header.
+///
+/// This consumes only the header line. It panics if the header is malformed or
+/// violates the basic AIGER size constraints.
 pub fn verify_aiger_header(reader: &mut impl BufRead) -> Result<AigerHeader, Error> {
     let mut parser = LineParser::default();
     parser.read_line(reader)?;
-
     let tag = parser.parse_word();
     let is_ascii = match tag {
         b"aag" => true,
@@ -144,14 +190,18 @@ impl Literals {
     }
 }
 
-/// A utility for parsing integers from lines in text files.
+/// A low-level parser for integers and words in a single ASCII line.
 #[derive(Default)]
 pub struct LineParser {
+    /// The line buffer being parsed.
     pub buf: Vec<u8>,
+
+    /// The current byte position in `buf`.
     pub pos: usize,
 }
 
 impl LineParser {
+    /// Create a parser from an existing line buffer.
     pub fn new(buf: Vec<u8>) -> Self {
         Self { buf, pos: 0 }
     }

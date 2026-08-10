@@ -1,6 +1,10 @@
 use super::{AigGraph, NodeId};
 
 impl AigGraph {
+    /// Render this graph as Graphviz DOT text.
+    ///
+    /// The returned string can be written to a `.dot` file and rendered with
+    /// Graphviz tools such as `dot`.
     pub fn to_dot(&self) -> String {
         let mut dot = String::new();
 

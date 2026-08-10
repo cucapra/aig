@@ -1,6 +1,10 @@
 use super::stimulus::Stimulus;
 use super::{AigGraph, HashMap, NodeId};
 
+/// A packed Boolean simulation value.
+///
+/// Use `0` for false and [`Value::MAX`] for true. Other bit patterns can be
+/// used to evaluate many independent Boolean lanes at once.
 pub type Value = usize;
 type Env = HashMap<NodeId, Value>;
 
@@ -20,8 +24,9 @@ pub struct SimulationStep {
     pub next_state: Vec<Value>,
 }
 
-/// The state of one simulation step, where graph stores the circuit structure,
-/// and current stores the latch values
+/// A step-by-step simulator for an [`AigGraph`].
+///
+/// New simulators initialize every latch to false.
 pub struct Simulator<'a> {
     graph: &'a AigGraph,
     current: Env,
@@ -39,6 +44,10 @@ impl<'a> Simulator<'a> {
         Self { graph, current }
     }
 
+    /// Evaluate one clock cycle with the given input values.
+    ///
+    /// The returned [`SimulationStep`] contains the current latch state, inputs,
+    /// outputs, and next latch state for this cycle.
     pub fn step(&mut self, input_values: &[Value]) -> SimulationStep {
         // Record the latch state at the beginning of this cycle.
         let state: Vec<_> = self
@@ -97,6 +106,7 @@ impl<'a> Simulator<'a> {
 }
 
 impl AigGraph {
+    /// Evaluate a signal using the provided values for inputs and latches.
     pub fn eval(&self, id: NodeId, values: &Env) -> Value {
         if id.is_false() {
             0
@@ -130,7 +140,8 @@ impl AigGraph {
 
     /// Simulate the circuit for several clock cycles.
     ///
-    /// Creates a Simulator`, repeatedly calls step and collects every step into a trace.
+    /// Creates a [`Simulator`], repeatedly calls [`Simulator::step`], and
+    /// collects every step into a trace.
     pub fn simulate(&self, mut inputs: impl Stimulus) -> Vec<SimulationStep> {
         let mut simulator = self.simulator();
         let mut trace = Vec::new();
