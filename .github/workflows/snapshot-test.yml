@@ -38,7 +38,7 @@ jobs:
         run: cargo test --all
 
       - name: Build debug binary
-        run: cargo build
+        run: cargo build --features cli --bin raig
 
       - name: Run AIGER snapshot tests
         run: turnt -e raw -e opt tests/inputs/*.aag

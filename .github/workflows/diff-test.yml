@@ -26,7 +26,7 @@ jobs:
         run: uv tool install turnt
 
       - name: Build Rust implementation
-        run: cargo build
+        run: cargo build --features cli --bin raig
 
       - name: Install C AIGER
         run: |
