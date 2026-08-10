@@ -148,7 +148,7 @@
 //! Install the CLI with:
 //!
 //! ```sh
-//! cargo install raig --features cli
+//! cargo install raig-cli
 //! ```
 //!
 //! Then parse, render, or simulate AIGER files:

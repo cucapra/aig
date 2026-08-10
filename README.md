@@ -8,8 +8,8 @@ in Rust, developed at
 An AIG represents Boolean logic with AND gates and inverted edges. This compact
 form is useful for logic verification, synthesis, and testing tools.
 
-The library has no default dependencies. The optional `cli` feature enables the
-`raig` command-line tool and its `clap` dependency.
+The library crate has no dependencies. The command-line tool is published as the
+separate `raig-cli` crate, which depends on `raig` and `clap`.
 
 ## Installation
 
@@ -22,7 +22,7 @@ cargo add raig
 Install the command-line tool:
 
 ```sh
-cargo install raig --features cli
+cargo install raig-cli
 ```
 
 ## License
