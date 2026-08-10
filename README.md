@@ -1,9 +1,9 @@
 # raig
 
 `raig` (pronounced “rage”) is a dependency-free library for working with
-<a href="https://en.wikipedia.org/wiki/And-inverter_graph" target="_blank" rel="noopener noreferrer">And-Inverter Graphs (AIGs)</a>
+[AIGs](https://en.wikipedia.org/wiki/And-inverter_graph)
 in Rust, developed at
-<a href="https://capra.cs.cornell.edu/" target="_blank" rel="noopener noreferrer">Cornell's Capra Lab</a>.
+[Cornell's Capra Lab](https://capra.cs.cornell.edu/).
 
 An AIG represents Boolean logic with AND gates and inverted edges. This compact
 form is useful for logic verification, synthesis, and testing tools.
