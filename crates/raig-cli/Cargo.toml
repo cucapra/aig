@@ -1,23 +1,26 @@
 [package]
-name = "raig"
+name = "raig-cli"
 version = "0.1.0"
 authors = ["Modi Goldstein-Rosenfeld <mbg237@cornell.edu>", "Adrian Sampson <asampson@cs.cornell.edu>", "Kevin Laeufer <laeufer@cornell.edu>"]
 edition = "2024"
 rust-version = "1.85"
-description = "A library for boolean logic verification using And-Inverter Graphs (AIGs)"
-documentation = "https://docs.rs/raig"
+description = "Command-line tools for working with And-Inverter Graphs (AIGs)"
+documentation = "https://docs.rs/raig-cli"
 repository = "https://github.com/cucapra/aig"
 license = "MIT"
+readme = "README.md"
 keywords = ["aig", "aiger", "logic", "verification", "boolean"]
-categories = ["data-structures", "development-tools::testing", "parsing", "simulation"]
+categories = ["command-line-utilities", "development-tools::testing", "parsing", "simulation"]
 include = [
     "/Cargo.toml",
-    "/LICENSE",
     "/README.md",
     "/src/**",
 ]
 
-[workspace]
-members = ["crates/raig-cli"]
+[[bin]]
+name = "raig"
+path = "src/main.rs"
 
 [dependencies]
+clap = { version = "4.6.1", features = ["derive"] }
+raig = { path = "../..", version = "0.1.0" }

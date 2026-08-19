@@ -2,9 +2,9 @@
     html_logo_url = "https://tr.rbxcdn.com/180DAY-2de3012b73f0302860041299c84dc0ac/420/420/Hat/Webp/noFilter"
 )]
 //! `raig` (pronounced “rage”) is a dependency-free library for working with
-//! <a href="https://en.wikipedia.org/wiki/And-inverter_graph" target="_blank" rel="noopener noreferrer">And-Inverter Graphs (AIGs)</a>
+//! [AIGs](https://en.wikipedia.org/wiki/And-inverter_graph)
 //! in Rust, developed at
-//! <a href="https://capra.cs.cornell.edu/" target="_blank" rel="noopener noreferrer">Cornell's Capra Lab</a>.
+//! [Cornell's Capra Lab](https://capra.cs.cornell.edu/).
 //! AIGs represent Boolean logic using only AND nodes and NOT edges. This simple
 //! structure makes them smaller and faster for computer tools to process than
 //! other logic representations.
@@ -17,12 +17,12 @@
 //! ## 1.0 Start With an AIGER File
 //!
 //! The most common starting point is an
-//! <a href="https://fmv.jku.at/aiger/FORMAT.aiger" target="_blank" rel="noopener noreferrer">AIGER file</a>
+//! [AIGER file](https://fmv.jku.at/aiger/FORMAT.aiger)
 //! (a digital file format for storing AIGs)
 //! from another tool, such as
-//! <a href="https://github.com/mvcisback/py-aiger" target="_blank" rel="noopener noreferrer">py-aiger</a>
+//! [py-aiger](https://github.com/mvcisback/py-aiger)
 //! or
-//! <a href="https://github.com/arminbiere/aiger" target="_blank" rel="noopener noreferrer">aiger</a>.
+//! [aiger](https://github.com/arminbiere/aiger).
 //! Internal generation of AIGER files is not yet supported, but you can bypass the parser and build a
 //! [`graph::AigGraph`] (our intenral representation of AIGs) directly using [`graph::AigBuilder`].
 //!
@@ -34,7 +34,7 @@
 //! Here is a small example demonstrating some of AIGER's invariants, but you can (and should!)
 //! read more about the
 //! invariants of AIGER files (i.e., .aag and .aig files)
-//! <a href="https://github.com/arminbiere/aiger" target="_blank" rel="noopener noreferrer">here</a>.
+//! [here](https://github.com/arminbiere/aiger).
 //!
 //! This is an example ASCII AIGER circuit that has one input and one output. The output is
 //! exactly the input, so it behaves like an identity function.
@@ -148,7 +148,7 @@
 //! Install the CLI with:
 //!
 //! ```sh
-//! cargo install raig --features cli
+//! cargo install raig-cli
 //! ```
 //!
 //! Then parse, render, or simulate AIGER files:
