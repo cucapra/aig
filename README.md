@@ -11,6 +11,8 @@ form is useful for logic verification, synthesis, and testing tools.
 The library crate has no dependencies. The command-line tool is published as the
 separate [`raig-cli`](https://crates.io/crates/raig-cli) crate, which depends on `raig` and `clap`.
 
+For relevant version updates, see the [`changelog`](https://github.com/cucapra/raig/blob/main/CHANGELOG.md) file.
+
 ## Installation
 
 Add the library to a Rust project:
