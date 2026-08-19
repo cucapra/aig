@@ -9,7 +9,7 @@ An AIG represents Boolean logic with AND gates and inverted edges. This compact
 form is useful for logic verification, synthesis, and testing tools.
 
 The library crate has no dependencies. The command-line tool is published as the
-separate `raig-cli` crate, which depends on `raig` and `clap`.
+separate [`raig-cli`](https://crates.io/crates/raig-cli) crate, which depends on `raig` and `clap`.
 
 ## Installation
 
