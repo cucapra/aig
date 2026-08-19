@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - release raig-cli as a seperate crate
 - hyperlink in readme to raig-cli and changelog
 
+git commit: 5285acd900b45904c0716844d2725e65df55c467
+
 
 
 
