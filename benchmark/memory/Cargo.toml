@@ -9,7 +9,6 @@ publish = false
 [dependencies]
 raig = { path = "../.." }
 mutaig = "0.4.2"
-aig = "0.4.6"
 
 [[bin]]
 name = "memory_raig"
@@ -18,7 +17,3 @@ path = "memory_raig.rs"
 [[bin]]
 name = "memory_mutaig"
 path = "memory_mutaig.rs"
-
-[[bin]]
-name = "memory_aig_rs"
-path = "memory_aig_rs.rs"

@@ -15,7 +15,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@nightly
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Install Valgrind
         run: |
@@ -44,16 +44,6 @@ jobs:
             ./target/memory/release/memory_mutaig "$BENCHMARK_FILE"
 
           ms_print massif-mutaig.out > massif-mutaig.txt
-
-      - name: Profile aig-rs
-        run: |
-          valgrind \
-            --tool=massif \
-            --time-unit=B \
-            --massif-out-file=massif-aig-rs.out \
-            ./target/memory/release/memory_aig_rs "$BENCHMARK_FILE"
-
-          ms_print massif-aig-rs.out > massif-aig-rs.txt
 
       - name: Upload profiles
         uses: actions/upload-artifact@v4
