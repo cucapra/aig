@@ -8,6 +8,7 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       BENCHMARK_FILE: tests/inputs/function_exactly_two_of_four.aag
+      CARGO_TARGET_DIR: target/memory
 
     steps:
       - name: Checkout
@@ -22,12 +23,7 @@ jobs:
           sudo apt-get install -y valgrind
 
       - name: Build memory benchmarks
-        run: |
-          mkdir -p examples
-          cp benchmark/memory/memory_raig.rs examples/memory_raig.rs
-          cp benchmark/memory/memory_mutaig.rs examples/memory_mutaig.rs
-          cp benchmark/memory/memory_aig_rs.rs examples/memory_aig_rs.rs
-          cargo build --release --examples
+        run: cargo build --manifest-path benchmark/memory/Cargo.toml --release --bins
 
       - name: Profile raig
         run: |
@@ -35,7 +31,7 @@ jobs:
             --tool=massif \
             --time-unit=B \
             --massif-out-file=massif-raig.out \
-            ./target/release/examples/memory_raig "$BENCHMARK_FILE"
+            ./target/memory/release/memory_raig "$BENCHMARK_FILE"
 
           ms_print massif-raig.out > massif-raig.txt
 
@@ -45,7 +41,7 @@ jobs:
             --tool=massif \
             --time-unit=B \
             --massif-out-file=massif-mutaig.out \
-            ./target/release/examples/memory_mutaig "$BENCHMARK_FILE"
+            ./target/memory/release/memory_mutaig "$BENCHMARK_FILE"
 
           ms_print massif-mutaig.out > massif-mutaig.txt
 
@@ -55,7 +51,7 @@ jobs:
             --tool=massif \
             --time-unit=B \
             --massif-out-file=massif-aig-rs.out \
-            ./target/release/examples/memory_aig_rs "$BENCHMARK_FILE"
+            ./target/memory/release/memory_aig_rs "$BENCHMARK_FILE"
 
           ms_print massif-aig-rs.out > massif-aig-rs.txt
 

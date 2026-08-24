@@ -21,7 +21,3 @@ include = [
 members = ["crates/raig-cli"]
 
 [dependencies]
-
-[dev-dependencies]
-mutaig = "0.4.2"
-aig = "0.4.6"
