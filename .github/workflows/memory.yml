@@ -1,0 +1,58 @@
+name: Memory benchmarks
+
+on:
+  workflow_dispatch:
+
+jobs:
+  memory:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Valgrind
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y valgrind
+
+      - name: Build
+        run: cargo build --release --examples
+
+      - name: Profile raig
+        run: |
+          valgrind \
+            --tool=massif \
+            --time-unit=B \
+            --massif-out-file=massif-raig.out \
+            ./target/release/examples/memory_raig tests/benchmark.aig
+
+          ms_print massif-raig.out > massif-raig.txt
+
+      - name: Profile mutaig
+        run: |
+          valgrind \
+            --tool=massif \
+            --time-unit=B \
+            --massif-out-file=massif-mutaig.out \
+            ./target/release/examples/memory_mutaig tests/benchmark.aig
+
+          ms_print massif-mutaig.out > massif-mutaig.txt
+
+      - name: Profile aig-rs
+        run: |
+          valgrind \
+            --tool=massif \
+            --time-unit=B \
+            --massif-out-file=massif-aig-rs.out \
+            ./target/release/examples/memory_aig_rs tests/benchmark.aig
+
+          ms_print massif-aig-rs.out > massif-aig-rs.txt
+
+      - name: Upload profiles
+        uses: actions/upload-artifact@v4
+        with:
+          name: memory-profiles
+          path: |
+            massif-*.out
+            massif-*.txt
